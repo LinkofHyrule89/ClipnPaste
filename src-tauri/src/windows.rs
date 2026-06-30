@@ -1,16 +1,41 @@
-use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
+use serde::Serialize;
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder};
+
+
 
 const CLIPBOARD_LABEL: &str = "clipboard";
 const SNIP_TOOLBAR_LABEL: &str = "snip-toolbar";
 const SNIP_OVERLAY_LABEL: &str = "snip-overlay";
 const SNIP_TOAST_LABEL: &str = "snip-toast";
 const SNIP_EDITOR_LABEL: &str = "snip-editor";
+const SETTINGS_LABEL: &str = "settings";
 
 const CLIPBOARD_WIDTH: u32 = 420;
 const CLIPBOARD_HEIGHT: u32 = 560;
+const SETTINGS_WIDTH: u32 = 380;
+const SETTINGS_HEIGHT: u32 = 320;
 
-pub fn show_clipboard_panel(app: &AppHandle) -> Result<(), String> {
+#[derive(Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ClipboardTab {
+    History,
+    Emoji,
+}
+
+impl ClipboardTab {
+    fn query_value(self) -> &'static str {
+        match self {
+            ClipboardTab::History => "history",
+            ClipboardTab::Emoji => "emoji",
+        }
+    }
+}
+
+pub fn show_clipboard_panel(app: &AppHandle, tab: ClipboardTab) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(CLIPBOARD_LABEL) {
+        window
+            .emit("set-clipboard-tab", tab)
+            .map_err(|e| e.to_string())?;
         position_bottom_right(&window, CLIPBOARD_WIDTH, CLIPBOARD_HEIGHT)?;
         window
             .set_always_on_top(true)
@@ -20,10 +45,14 @@ pub fn show_clipboard_panel(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
 
+    let url = format!(
+        "index.html?window=clipboard&tab={}",
+        tab.query_value()
+    );
     let window = WebviewWindowBuilder::new(
         app,
         CLIPBOARD_LABEL,
-        WebviewUrl::App("index.html?window=clipboard".into()),
+        WebviewUrl::App(url.into()),
     )
     .title("Clipboard")
     .inner_size(CLIPBOARD_WIDTH as f64, CLIPBOARD_HEIGHT as f64)
@@ -36,6 +65,36 @@ pub fn show_clipboard_panel(app: &AppHandle) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
 
     position_bottom_right(&window, CLIPBOARD_WIDTH, CLIPBOARD_HEIGHT)?;
+    Ok(())
+}
+
+pub fn show_settings_window(app: &AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(SETTINGS_LABEL) {
+        center_on_screen(&window, SETTINGS_WIDTH, SETTINGS_HEIGHT)?;
+        window
+            .set_always_on_top(true)
+            .map_err(|e| e.to_string())?;
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    let window = WebviewWindowBuilder::new(
+        app,
+        SETTINGS_LABEL,
+        WebviewUrl::App("index.html?window=settings".into()),
+    )
+    .title("ClipnPaste Settings")
+    .inner_size(SETTINGS_WIDTH as f64, SETTINGS_HEIGHT as f64)
+    .resizable(false)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .visible(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+
+    center_on_screen(&window, SETTINGS_WIDTH, SETTINGS_HEIGHT)?;
     Ok(())
 }
 
@@ -167,6 +226,28 @@ pub fn show_snip_editor(app: &AppHandle) -> Result<(), String> {
     .build()
     .map_err(|e| e.to_string())?;
 
+    Ok(())
+}
+
+fn center_on_screen(
+    window: &tauri::WebviewWindow,
+    default_width: u32,
+    default_height: u32,
+) -> Result<(), String> {
+    if let Ok(monitor) = window.current_monitor() {
+        if let Some(monitor) = monitor {
+            let size = monitor.size();
+            let pos = monitor.position();
+            let win_size = window
+                .outer_size()
+                .unwrap_or(PhysicalSize::new(default_width, default_height));
+            let x = pos.x + ((size.width as i32 - win_size.width as i32) / 2);
+            let y = pos.y + ((size.height as i32 - win_size.height as i32) / 2);
+            window
+                .set_position(PhysicalPosition::new(x, y))
+                .map_err(|e| e.to_string())?;
+        }
+    }
     Ok(())
 }
 

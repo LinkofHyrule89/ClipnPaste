@@ -5,6 +5,9 @@ Windows 11-style clipboard history and snipping tool for Linux Mint and other De
 ## Features
 
 - `Super+V` opens clipboard history with text and image previews
+- `Super+;` opens the emoji picker (same panel, Emoji tab)
+- Tabbed panel: History, Emoji (offline search), GIF (coming soon)
+- Settings to hide Emoji/GIF tabs; change hotkeys via system keyboard settings
 - Pin items and clear all unpinned entries
 - `Super+Shift+S` opens the snipping toolbar
 - Capture fullscreen, a single window, or a selected region
@@ -18,7 +21,7 @@ Install build dependencies on Mint:
 ```bash
 sudo apt install curl build-essential libwebkit2gtk-4.1-dev \
   libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
-  libssl-dev libx11-dev libxfixes-dev patchelf pkg-config
+  libssl-dev libx11-dev libxfixes-dev patchelf pkg-config xdotool
 ```
 
 Also install Rust and Node.js 20+.
@@ -57,9 +60,16 @@ clipnpaste &
 | Shortcut | Action |
 |----------|--------|
 | `Super+V` | Open clipboard history (bottom-right) |
+| `Super+;` | Open emoji picker |
 | `Super+Shift+S` | Open snipping toolbar |
 
-On Cinnamon, ClipnPaste registers these under **System Settings → Keyboard → Shortcuts → Custom Shortcuts**. Mint Menu can stay on Super.
+On Cinnamon, ClipnPaste registers these under **System Settings → Keyboard → Shortcuts → Custom Shortcuts**. Mint Menu can stay on Super. Open **Settings** from the tray or clipboard gear icon to hide tabs or jump to keyboard shortcuts.
+
+### Settings
+
+- Tray → **Settings**, or the gear icon in the clipboard panel
+- Toggle **Show Emoji tab** / **Show GIF tab** (saved to `~/.local/share/clipnpaste/settings.json`)
+- **Keyboard shortcuts…** opens Cinnamon **Keyboard → Shortcuts** so you can remap ClipnPaste hotkeys
 
 ### Data location
 
@@ -67,6 +77,7 @@ All app data is stored locally:
 
 - Clipboard database: `~/.local/share/clipnpaste/history.db`
 - App IPC socket: `~/.local/share/clipnpaste/ipc.sock`
+- Settings: `~/.local/share/clipnpaste/settings.json`
 
 The UI is bundled inside the app; no internet connection is required at runtime.
 

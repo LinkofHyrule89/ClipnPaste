@@ -1,7 +1,9 @@
 use crate::clipboard::{
-    monitor::write_item_to_clipboard, ClipItemSummary, ClipItemType,
+    monitor::{write_item_to_clipboard, write_text}, ClipItemSummary, ClipItemType,
 };
 use crate::db::Database;
+use crate::focus_target;
+use crate::settings::{self, AppSettings};
 use crate::snip::{capture_fullscreen, capture_region, capture_window, list_windows, CaptureResult};
 use crate::windows;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -10,6 +12,32 @@ use tauri::{AppHandle, Emitter, State};
 
 pub struct AppState {
     pub db: Arc<Mutex<Database>>,
+    pub settings: Arc<Mutex<AppSettings>>,
+    pub focus_target: focus_target::FocusTargetStore,
+}
+
+#[tauri::command]
+pub fn get_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
+    Ok(settings::get_locked(&state.settings))
+}
+
+#[tauri::command]
+pub fn set_settings(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    settings: AppSettings,
+) -> Result<(), String> {
+    settings::apply_settings(&app, &state.settings, settings)
+}
+
+#[tauri::command]
+pub fn open_keyboard_shortcuts() -> Result<(), String> {
+    settings::open_keyboard_shortcuts()
+}
+
+#[tauri::command]
+pub fn show_settings(app: AppHandle) -> Result<(), String> {
+    windows::show_settings_window(&app)
 }
 
 #[tauri::command]
@@ -42,6 +70,57 @@ pub fn delete_item(state: State<'_, AppState>, id: String) -> Result<(), String>
 pub fn clear_unpinned(state: State<'_, AppState>) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.clear_unpinned().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn copy_text_to_clipboard(text: String) -> Result<(), String> {
+    write_text(&text)
+}
+
+#[tauri::command]
+pub fn paste_text_to_target(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    text: String,
+) -> Result<(), String> {
+    write_text(&text)?;
+    windows::hide_clipboard_panel(&app);
+    focus_target::paste_after_hide(
+        &state.focus_target,
+        focus_target::PasteMode::TypeText,
+        Some(&text),
+    );
+    Ok(())
+}
+
+#[tauri::command]
+pub fn paste_item_to_target(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let item = db.get_item(&id).map_err(|e| e.to_string())?.ok_or("Item not found")?;
+    write_item_to_clipboard(item.item_type, &item.content)?;
+    windows::hide_clipboard_panel(&app);
+
+    match item.item_type {
+        ClipItemType::Text => {
+            focus_target::paste_after_hide(
+                &state.focus_target,
+                focus_target::PasteMode::TypeText,
+                Some(&item.content),
+            );
+        }
+        ClipItemType::Image => {
+            focus_target::paste_after_hide(
+                &state.focus_target,
+                focus_target::PasteMode::ClipboardPaste,
+                None,
+            );
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use x11rb::connection::Connection;
 use x11rb::properties::WmClass;
 use x11rb::protocol::xproto::{
@@ -12,12 +12,16 @@ use x11rb::protocol::Event;
 use x11rb::rust_connection::RustConnection;
 use xkeysym::RawKeysym;
 
+use crate::commands::AppState;
+use crate::focus_target;
 use crate::ipc;
+use crate::settings;
 use crate::windows;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum HotkeyAction {
     Clipboard,
+    Emoji,
     Snip,
 }
 
@@ -66,12 +70,19 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
     let shift_keycodes = keycodes_for_keysyms(&conn, &[xkeysym::key::Shift_L, xkeysym::key::Shift_R])?;
 
     let v_keycode = required_keycode(&conn, xkeysym::key::V, "V")?;
+    let semicolon_keycode =
+        required_keycode(&conn, xkeysym::key::semicolon, "semicolon")?;
     let s_keycode = required_keycode(&conn, xkeysym::key::S, "S")?;
 
     let bindings = [
         HotkeyBinding {
             action: HotkeyAction::Clipboard,
             keycode: v_keycode,
+            mods: ModMask::from(KeyButMask::MOD4.bits()),
+        },
+        HotkeyBinding {
+            action: HotkeyAction::Emoji,
+            keycode: semicolon_keycode,
             mods: ModMask::from(KeyButMask::MOD4.bits()),
         },
         HotkeyBinding {
@@ -87,6 +98,7 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
     }
 
     let mut v_plain_grabbed = false;
+    let mut semicolon_plain_grabbed = false;
     let mut s_plain_grabbed = false;
 
     loop {
@@ -114,10 +126,12 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
             root,
             &mut registered,
             v_keycode,
+            semicolon_keycode,
             s_keycode,
             super_down,
             shift_down,
             &mut v_plain_grabbed,
+            &mut semicolon_plain_grabbed,
             &mut s_plain_grabbed,
         )?;
 
@@ -155,10 +169,12 @@ fn update_dynamic_grabs(
     root: Window,
     registered: &mut BTreeMap<u8, Vec<HotkeyBinding>>,
     v_keycode: u8,
+    semicolon_keycode: u8,
     s_keycode: u8,
     super_down: bool,
     shift_down: bool,
     v_plain_grabbed: &mut bool,
+    semicolon_plain_grabbed: &mut bool,
     s_plain_grabbed: &mut bool,
 ) -> Result<(), String> {
     if super_down && !*v_plain_grabbed {
@@ -176,6 +192,29 @@ fn update_dynamic_grabs(
     } else if !super_down && *v_plain_grabbed {
         unregister_binding(conn, root, registered, v_keycode, ModMask::default())?;
         *v_plain_grabbed = false;
+    }
+
+    if super_down && !*semicolon_plain_grabbed {
+        register_binding(
+            conn,
+            root,
+            registered,
+            HotkeyBinding {
+                action: HotkeyAction::Emoji,
+                keycode: semicolon_keycode,
+                mods: ModMask::default(),
+            },
+        )?;
+        *semicolon_plain_grabbed = true;
+    } else if !super_down && *semicolon_plain_grabbed {
+        unregister_binding(
+            conn,
+            root,
+            registered,
+            semicolon_keycode,
+            ModMask::default(),
+        )?;
+        *semicolon_plain_grabbed = false;
     }
 
     if super_down && shift_down && !*s_plain_grabbed {
@@ -199,10 +238,23 @@ fn update_dynamic_grabs(
 }
 
 fn dispatch_action(app: &AppHandle, action: HotkeyAction) {
+    if matches!(action, HotkeyAction::Clipboard | HotkeyAction::Emoji) {
+        focus_target::capture_to_file();
+        let state = app.state::<AppState>();
+        focus_target::load_into_store(&state.focus_target);
+    }
+
     let app_handle = app.clone();
     let _ = app.clone().run_on_main_thread(move || match action {
         HotkeyAction::Clipboard => {
-            let _ = windows::show_clipboard_panel(&app_handle);
+            let _ = windows::show_clipboard_panel(&app_handle, windows::ClipboardTab::History);
+        }
+        HotkeyAction::Emoji => {
+            let state = app_handle.state::<AppState>();
+            if settings::emoji_enabled(&state.settings) {
+                let _ =
+                    windows::show_clipboard_panel(&app_handle, windows::ClipboardTab::Emoji);
+            }
         }
         HotkeyAction::Snip => {
             let _ = windows::show_snip_toolbar(&app_handle);

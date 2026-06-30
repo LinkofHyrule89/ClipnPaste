@@ -3,13 +3,17 @@ use std::os::unix::net::UnixStream;
 
 fn main() {
     let cmd = std::env::args().nth(1).unwrap_or_else(|| {
-        eprintln!("usage: clipnpaste-cli <clipboard|snip>");
+        eprintln!("usage: clipnpaste-cli <clipboard|emoji|snip>");
         std::process::exit(1);
     });
 
-    if cmd != "clipboard" && cmd != "snip" {
+    if cmd != "clipboard" && cmd != "emoji" && cmd != "snip" {
         eprintln!("unknown command: {cmd}");
         std::process::exit(1);
+    }
+
+    if cmd == "clipboard" || cmd == "emoji" {
+        clipnpaste_lib::focus_target::capture_to_file();
     }
 
     let socket = dirs::data_local_dir()

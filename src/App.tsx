@@ -1,4 +1,5 @@
 import { ClipboardPanel } from "./components/ClipboardPanel";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { SnipEditor } from "./components/SnipEditor";
 import { SnipOverlay } from "./components/SnipOverlay";
 import { SnipToast } from "./components/SnipToast";
@@ -15,6 +16,8 @@ export default function App() {
   switch (kind) {
     case "clipboard":
       return <ClipboardPanel />;
+    case "settings":
+      return <SettingsPanel />;
     case "snip-toolbar":
       return <SnipToolbar />;
     case "snip-overlay":

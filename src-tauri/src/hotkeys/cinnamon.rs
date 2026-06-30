@@ -6,6 +6,7 @@ const CUSTOM_KEYS_BASE: &str = "/org/cinnamon/desktop/keybindings/custom-keybind
 const DUMMY_CUSTOM_ENTRY: &str = "__dummy__";
 const CLIPBOARD_ID: &str = "custom3";
 const SNIP_ID: &str = "custom4";
+const EMOJI_ID: &str = "custom5";
 
 pub fn register() -> Result<bool, String> {
     if !is_cinnamon() {
@@ -24,6 +25,12 @@ pub fn register() -> Result<bool, String> {
         "ClipnPaste Snip",
         "['<Super><Shift>s']",
         &format!("{} snip", cli.display()),
+    )?;
+    register_binding(
+        EMOJI_ID,
+        "ClipnPaste Emoji",
+        "['<Super>semicolon']",
+        &format!("{} emoji", cli.display()),
     )?;
     notify_cinnamon_refresh()?;
 

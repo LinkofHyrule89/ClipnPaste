@@ -1,8 +1,10 @@
 mod clipboard;
 mod commands;
 mod db;
+pub mod focus_target;
 mod hotkeys;
 mod ipc;
+mod settings;
 mod snip;
 mod windows;
 
@@ -30,7 +32,11 @@ pub fn run() {
             let db = Arc::new(Mutex::new(database));
             let _monitor = ClipboardMonitor::start(db.clone());
 
-            app.manage(AppState { db });
+            app.manage(AppState {
+                db,
+                settings: settings::init_settings(),
+                focus_target: focus_target::new_store(),
+            });
 
             setup_tray(app.handle())?;
             hotkeys::setup(app.handle()).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
@@ -49,12 +55,19 @@ pub fn run() {
             commands::delete_item,
             commands::clear_unpinned,
             commands::copy_item_to_clipboard,
+            commands::copy_text_to_clipboard,
+            commands::paste_text_to_target,
+            commands::paste_item_to_target,
             commands::list_capture_windows,
             commands::snip_fullscreen,
             commands::snip_window,
             commands::snip_region,
             commands::copy_png_to_clipboard,
             commands::save_png,
+            commands::get_settings,
+            commands::set_settings,
+            commands::open_keyboard_shortcuts,
+            commands::show_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -63,8 +76,9 @@ pub fn run() {
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let open_clipboard = MenuItem::with_id(app, "open_clipboard", "Open Clipboard", true, None::<&str>)?;
     let open_snip = MenuItem::with_id(app, "open_snip", "Snipping Tool", true, None::<&str>)?;
+    let open_settings = MenuItem::with_id(app, "open_settings", "Settings", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open_clipboard, &open_snip, &quit])?;
+    let menu = Menu::with_items(app, &[&open_clipboard, &open_snip, &open_settings, &quit])?;
 
     let _tray = TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
@@ -72,10 +86,13 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open_clipboard" => {
-                let _ = windows::show_clipboard_panel(app);
+                let _ = windows::show_clipboard_panel(app, windows::ClipboardTab::History);
             }
             "open_snip" => {
                 let _ = windows::show_snip_toolbar(app);
+            }
+            "open_settings" => {
+                let _ = windows::show_settings_window(app);
             }
             "quit" => {
                 app.exit(0);
@@ -90,7 +107,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             } = event
             {
                 let app = tray.app_handle();
-                let _ = windows::show_clipboard_panel(&app);
+                let _ = windows::show_clipboard_panel(&app, windows::ClipboardTab::History);
             }
         })
         .build(app)?;

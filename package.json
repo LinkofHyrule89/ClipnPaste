@@ -1,11 +1,12 @@
 {
   "name": "clipnpaste",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run build:emoji && tsc && vite build",
+    "build:emoji": "node scripts/build-emoji-index.mjs",
     "preview": "vite preview",
     "tauri": "tauri"
   },

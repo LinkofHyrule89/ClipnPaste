@@ -5,9 +5,12 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
-use crate::windows;
+use crate::commands::AppState;
+use crate::focus_target;
+use crate::settings;
+use crate::windows::{self, ClipboardTab};
 
 pub static CHORD_USED: AtomicBool = AtomicBool::new(false);
 static LAST_CHORD_MS: AtomicU64 = AtomicU64::new(0);
@@ -70,11 +73,22 @@ fn now_ms() -> u64 {
 }
 
 fn dispatch(app: &AppHandle, cmd: &str) {
+    if matches!(cmd, "emoji" | "clipboard") {
+        let state = app.state::<AppState>();
+        focus_target::load_into_store(&state.focus_target);
+    }
+
     let app_handle = app.clone();
     let cmd = cmd.to_string();
     let _ = app.clone().run_on_main_thread(move || match cmd.as_str() {
         "clipboard" => {
-            let _ = windows::show_clipboard_panel(&app_handle);
+            let _ = windows::show_clipboard_panel(&app_handle, ClipboardTab::History);
+        }
+        "emoji" => {
+            let state = app_handle.state::<AppState>();
+            if settings::emoji_enabled(&state.settings) {
+                let _ = windows::show_clipboard_panel(&app_handle, ClipboardTab::Emoji);
+            }
         }
         "snip" => {
             let _ = windows::show_snip_toolbar(&app_handle);

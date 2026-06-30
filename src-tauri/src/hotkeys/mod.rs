@@ -31,7 +31,25 @@ fn setup_tauri_shortcuts(app: &AppHandle) -> Result<(), String> {
     app.global_shortcut()
         .on_shortcut("Super+V", move |_app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
-                let _ = crate::windows::show_clipboard_panel(&app_handle);
+                let _ = crate::windows::show_clipboard_panel(
+                    &app_handle,
+                    crate::windows::ClipboardTab::History,
+                );
+            }
+        })
+        .map_err(|e| e.to_string())?;
+
+    let app_handle = app.clone();
+    app.global_shortcut()
+        .on_shortcut("Super+;", move |_app, _shortcut, event| {
+            if event.state == ShortcutState::Pressed {
+                let state = app_handle.state::<crate::commands::AppState>();
+                if crate::settings::emoji_enabled(&state.settings) {
+                    let _ = crate::windows::show_clipboard_panel(
+                        &app_handle,
+                        crate::windows::ClipboardTab::Emoji,
+                    );
+                }
             }
         })
         .map_err(|e| e.to_string())?;
