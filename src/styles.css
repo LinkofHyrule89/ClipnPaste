@@ -30,3 +30,11 @@ body {
 .toolbar-btn.active {
   @apply bg-sky-500/30 text-sky-200;
 }
+
+.snip-toolbar-btn {
+  @apply flex h-9 w-9 items-center justify-center rounded-md bg-neutral-900/70 text-base text-white/90 backdrop-blur-sm transition hover:bg-neutral-800/85;
+}
+
+.snip-drag-handle {
+  @apply flex h-9 w-6 cursor-grab items-center justify-center rounded-md text-sm text-white/45 transition hover:bg-neutral-900/50 active:cursor-grabbing;
+}

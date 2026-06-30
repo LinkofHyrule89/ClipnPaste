@@ -45,6 +45,9 @@ pub fn hide_clipboard_panel(app: &AppHandle) {
 pub fn show_snip_toolbar(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(SNIP_TOOLBAR_LABEL) {
         center_top(&window)?;
+        window
+            .set_always_on_top(true)
+            .map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
@@ -56,9 +59,10 @@ pub fn show_snip_toolbar(app: &AppHandle) -> Result<(), String> {
         WebviewUrl::App("index.html?window=snip-toolbar".into()),
     )
     .title("Snip")
-    .inner_size(320.0, 56.0)
+    .inner_size(236.0, 44.0)
     .resizable(false)
     .decorations(false)
+    .transparent(true)
     .always_on_top(true)
     .skip_taskbar(true)
     .visible(true)

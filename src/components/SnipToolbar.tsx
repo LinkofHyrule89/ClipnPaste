@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { snipFullscreen } from "../api";
@@ -8,6 +9,16 @@ export function SnipToolbar() {
   const hide = async () => {
     await getCurrentWindow().hide();
   };
+
+  const startDrag = (event: React.MouseEvent) => {
+    if (event.button === 0) {
+      void getCurrentWindow().startDragging();
+    }
+  };
+
+  useEffect(() => {
+    void getCurrentWindow().setAlwaysOnTop(true);
+  }, []);
 
   const startMode = async (mode: SnipMode) => {
     if (mode === "screen") {
@@ -38,34 +49,48 @@ export function SnipToolbar() {
   };
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-transparent p-2">
-      <div className="glass-panel flex items-center gap-1 px-2 py-2">
-        <button
-          className="toolbar-btn"
-          title="Rectangle snip"
-          onClick={() => void startMode("rect")}
-        >
-          ▢
-        </button>
-        <button
-          className="toolbar-btn"
-          title="Window snip"
-          onClick={() => void startMode("window")}
-        >
-          ⧉
-        </button>
-        <button
-          className="toolbar-btn"
-          title="Fullscreen snip"
-          onClick={() => void startMode("screen")}
-        >
-          ⛶
-        </button>
-        <div className="mx-1 h-6 w-px bg-white/10" />
-        <button className="toolbar-btn" title="Close" onClick={() => void hide()}>
-          ✕
-        </button>
-      </div>
+    <div className="inline-flex items-center gap-0.5 p-0.5">
+      <button
+        type="button"
+        className="snip-drag-handle"
+        title="Drag to move"
+        aria-label="Drag to move"
+        onMouseDown={startDrag}
+      >
+        ⠿
+      </button>
+      <button
+        type="button"
+        className="snip-toolbar-btn"
+        title="Rectangle snip"
+        onClick={() => void startMode("rect")}
+      >
+        ▢
+      </button>
+      <button
+        type="button"
+        className="snip-toolbar-btn"
+        title="Window snip"
+        onClick={() => void startMode("window")}
+      >
+        ⧉
+      </button>
+      <button
+        type="button"
+        className="snip-toolbar-btn"
+        title="Fullscreen snip"
+        onClick={() => void startMode("screen")}
+      >
+        ⛶
+      </button>
+      <button
+        type="button"
+        className="snip-toolbar-btn"
+        title="Close"
+        onClick={() => void hide()}
+      >
+        ✕
+      </button>
     </div>
   );
 }
