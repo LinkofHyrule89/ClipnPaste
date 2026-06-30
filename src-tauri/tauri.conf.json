@@ -39,7 +39,11 @@
         "depends": [
           "libwebkit2gtk-4.1-0",
           "libayatana-appindicator3-1"
-        ]
+        ],
+        "files": {
+          "/usr/bin/clipnpaste-cli": "target/release/clipnpaste-cli",
+          "/etc/xdg/autostart/clipnpaste.desktop": "../assets/clipnpaste.desktop"
+        }
       }
     }
   }

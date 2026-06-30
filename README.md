@@ -38,10 +38,42 @@ For a local production install:
 ./scripts/install-local.sh
 ```
 
+## Install from GitHub release (recommended)
+
+Download the latest `ClipnPaste_*_amd64.deb` from [Releases](https://github.com/LinkofHyrule89/ClipnPaste/releases), then:
+
+```bash
+sudo apt install ./ClipnPaste_*_amd64.deb
+```
+
+Start the app (or log out and back in to pick up autostart):
+
+```bash
+clipnpaste &
+```
+
+### Hotkeys
+
+| Shortcut | Action |
+|----------|--------|
+| `Super+V` | Open clipboard history (bottom-right) |
+| `Super+Shift+S` | Open snipping toolbar |
+
+On Cinnamon, ClipnPaste registers these under **System Settings → Keyboard → Shortcuts → Custom Shortcuts**. Mint Menu can stay on Super.
+
+### Data location
+
+All app data is stored locally:
+
+- Clipboard database: `~/.local/share/clipnpaste/history.db`
+- App IPC socket: `~/.local/share/clipnpaste/ipc.sock`
+
+The UI is bundled inside the app; no internet connection is required at runtime.
+
 ## Build Debian package
 
 ```bash
-npm run tauri build
+./scripts/build-deb.sh
 ```
 
 The `.deb` package is written to `src-tauri/target/release/bundle/deb/`.

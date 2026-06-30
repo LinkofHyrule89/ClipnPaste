@@ -4,10 +4,15 @@ version = "0.1.0"
 description = "Windows 11-style clipboard history and snipping tool for Linux"
 authors = ["Matt"]
 edition = "2021"
+default-run = "clipnpaste"
 
 [lib]
 name = "clipnpaste_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "clipnpaste"
+path = "src/main.rs"
 
 [[bin]]
 name = "clipnpaste-cli"
