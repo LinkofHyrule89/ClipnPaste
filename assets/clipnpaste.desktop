@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=ClipnPaste
+Comment=Windows 11-style clipboard history and snipping tool
+Exec=clipnpaste
+Icon=clipnpaste
+Terminal=false
+Categories=Utility;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
