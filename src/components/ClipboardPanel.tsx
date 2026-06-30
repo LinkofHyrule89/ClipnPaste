@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   clearUnpinned,
@@ -13,6 +13,7 @@ export function ClipboardPanel() {
   const [items, setItems] = useState<ClipItemSummary[]>([]);
   const [selected, setSelected] = useState(0);
   const [loading, setLoading] = useState(true);
+  const focusReady = useRef(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -28,6 +29,29 @@ export function ClipboardPanel() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const panel = getCurrentWindow();
+    let unlistenFocus: (() => void) | undefined;
+    const readyTimer = setTimeout(() => {
+      focusReady.current = true;
+    }, 200);
+
+    void (async () => {
+      await panel.setAlwaysOnTop(true);
+      unlistenFocus = await panel.onFocusChanged(({ payload: focused }) => {
+        if (focusReady.current && !focused) {
+          void panel.hide();
+        }
+      });
+    })();
+
+    return () => {
+      clearTimeout(readyTimer);
+      focusReady.current = false;
+      unlistenFocus?.();
+    };
+  }, []);
 
   const close = async () => {
     await getCurrentWindow().hide();
@@ -80,12 +104,22 @@ export function ClipboardPanel() {
             <h1 className="text-sm font-semibold">Clipboard</h1>
             <p className="text-xs text-white/50">Super+V</p>
           </div>
-          <button
-            onClick={() => void handleClearAll()}
-            className="rounded-md px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
-          >
-            Clear all
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => void handleClearAll()}
+              className="rounded-md px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
+            >
+              Clear all
+            </button>
+            <button
+              onClick={() => void close()}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-lg text-white/70 hover:bg-white/10 hover:text-white"
+              title="Close"
+              aria-label="Close clipboard"
+            >
+              ×
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-2">

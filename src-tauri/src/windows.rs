@@ -9,6 +9,9 @@ const SNIP_EDITOR_LABEL: &str = "snip-editor";
 pub fn show_clipboard_panel(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(CLIPBOARD_LABEL) {
         position_near_cursor(&window)?;
+        window
+            .set_always_on_top(true)
+            .map_err(|e| e.to_string())?;
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
         return Ok(());
