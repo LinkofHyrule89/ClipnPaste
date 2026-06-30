@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   clearUnpinned,
   copyItemToClipboard,
+  deleteItem,
   getHistory,
   pinItem,
   unpinItem,
@@ -78,6 +79,12 @@ export function ClipboardPanel() {
     await refresh();
   };
 
+  const removeItem = async (item: ClipItemSummary, event: React.MouseEvent) => {
+    event.stopPropagation();
+    await deleteItem(item.id);
+    await refresh();
+  };
+
   const handleClearAll = async () => {
     await clearUnpinned();
     await refresh();
@@ -142,10 +149,18 @@ export function ClipboardPanel() {
             </p>
           )}
           {items.map((item, index) => (
-            <button
+            <div
               key={item.id}
+              role="button"
+              tabIndex={0}
               onClick={() => void selectItem(item)}
-              className={`mb-2 flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition ${
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  void selectItem(item);
+                }
+              }}
+              className={`mb-2 flex w-full cursor-pointer items-start gap-3 rounded-lg px-3 py-3 text-left transition ${
                 index === selected ? "bg-sky-500/20" : "hover:bg-white/5"
               }`}
             >
@@ -162,16 +177,29 @@ export function ClipboardPanel() {
                   </p>
                 )}
               </div>
-              <button
-                onClick={(event) => void togglePin(item, event)}
-                className={`rounded-md px-2 py-1 text-xs ${
-                  item.pinned ? "text-sky-300" : "text-white/40 hover:text-white/70"
-                }`}
-                title={item.pinned ? "Unpin" : "Pin"}
-              >
-                {item.pinned ? "Pinned" : "Pin"}
-              </button>
-            </button>
+              <div className="flex shrink-0 items-center gap-1 self-start">
+                <button
+                  type="button"
+                  onClick={(event) => void removeItem(item, event)}
+                  className="clipboard-action-btn text-white/45 hover:bg-red-500/20 hover:text-red-300"
+                  title="Delete"
+                  aria-label="Delete item"
+                >
+                  🗑
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => void togglePin(item, event)}
+                  className={`clipboard-action-btn ${
+                    item.pinned ? "text-sky-300" : "text-white/40 hover:text-white/70"
+                  }`}
+                  title={item.pinned ? "Unpin" : "Pin"}
+                  aria-label={item.pinned ? "Unpin item" : "Pin item"}
+                >
+                  {item.pinned ? "📌" : "📍"}
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       </div>

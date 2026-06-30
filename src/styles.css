@@ -42,3 +42,7 @@ body {
 .clipboard-drag-handle {
   @apply cursor-grab rounded-md py-0.5 pr-2 active:cursor-grabbing;
 }
+
+.clipboard-action-btn {
+  @apply flex h-8 w-8 items-center justify-center rounded-md text-sm transition hover:bg-white/10;
+}
