@@ -31,6 +31,13 @@ npm install
 npm run tauri dev
 ```
 
+For a local production install:
+
+```bash
+./scripts/build-release.sh
+./scripts/install-local.sh
+```
+
 ## Build Debian package
 
 ```bash

@@ -5,7 +5,10 @@ use std::time::{Duration, Instant};
 use tauri::AppHandle;
 use x11rb::connection::Connection;
 use x11rb::properties::WmClass;
-use x11rb::protocol::xproto::{ConnectionExt, GrabMode, KeyButMask, ModMask, Window};
+use x11rb::protocol::xproto::{
+    ConnectionExt, GrabMode, KeyButMask, ModMask, Window, KEY_PRESS_EVENT, KEY_RELEASE_EVENT,
+};
+use x11rb::protocol::xtest::ConnectionExt as XTestConnectionExt;
 use x11rb::protocol::Event;
 use x11rb::rust_connection::RustConnection;
 use xkeysym::RawKeysym;
@@ -24,6 +27,8 @@ struct HotkeyBinding {
     action: HotkeyAction,
     keycode: u8,
     mods: ModMask,
+    /// Plain grabs (modifier 0) check physical modifier state and replay otherwise.
+    plain: bool,
 }
 
 pub fn setup(app: &AppHandle) -> Result<(), String> {
@@ -48,6 +53,11 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
     let (conn, screen) = RustConnection::connect(None)
         .map_err(|e| format!("failed to connect to X11 display: {e}"))?;
 
+    conn.xtest_get_version(2, 2)
+        .map_err(|e| format!("failed to initialize XTest extension: {e}"))?
+        .reply()
+        .map_err(|e| format!("failed to initialize XTest extension: {e}"))?;
+
     let root = conn.setup().roots[screen].root;
     let super_keycodes = keycodes_for_keysyms(&conn, &[xkeysym::key::Super_L, xkeysym::key::Super_R])?;
     let shift_keycodes = keycodes_for_keysyms(&conn, &[xkeysym::key::Shift_L, xkeysym::key::Shift_R])?;
@@ -64,11 +74,25 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
             action: HotkeyAction::Clipboard,
             keycode: v_keycode,
             mods: ModMask::from(KeyButMask::MOD4.bits()),
+            plain: false,
+        },
+        HotkeyBinding {
+            action: HotkeyAction::Clipboard,
+            keycode: v_keycode,
+            mods: ModMask::default(),
+            plain: true,
         },
         HotkeyBinding {
             action: HotkeyAction::Snip,
             keycode: s_keycode,
             mods: ModMask::from(KeyButMask::MOD4.bits() | KeyButMask::SHIFT.bits()),
+            plain: false,
+        },
+        HotkeyBinding {
+            action: HotkeyAction::Snip,
+            keycode: s_keycode,
+            mods: ModMask::default(),
+            plain: true,
         },
     ];
 
@@ -88,12 +112,28 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
 
                 if let Some(entries) = registered.get(&keycode) {
                     for binding in entries {
-                        if binding_matches(binding, event_mods, &conn, &super_keycodes, &shift_keycodes)? {
+                        if event_mods != binding.mods {
+                            continue;
+                        }
+
+                        if binding.plain {
+                            if handle_plain_press(
+                                binding,
+                                &conn,
+                                root,
+                                &super_keycodes,
+                                &shift_keycodes,
+                                &app,
+                            )? {
+                                CHORD_USED.store(true, Ordering::SeqCst);
+                                last_chord_at = Some(Instant::now());
+                            }
+                        } else {
                             CHORD_USED.store(true, Ordering::SeqCst);
                             last_chord_at = Some(Instant::now());
                             dispatch_action(&app, binding.action);
-                            break;
                         }
+                        break;
                     }
                 }
             }
@@ -109,30 +149,45 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
         }
         super_was_down = super_is_down;
 
-        std::thread::sleep(Duration::from_millis(8));
+        std::thread::sleep(Duration::from_millis(1));
     }
 }
 
-fn binding_matches(
+fn handle_plain_press(
     binding: &HotkeyBinding,
-    event_mods: ModMask,
     conn: &RustConnection,
+    root: Window,
     super_keycodes: &[u8],
     shift_keycodes: &[u8],
+    app: &AppHandle,
 ) -> Result<bool, String> {
-    if event_mods == binding.mods {
-        return Ok(true);
-    }
+    let should_trigger = match binding.action {
+        HotkeyAction::Clipboard => super_keys_down(conn, super_keycodes)?,
+        HotkeyAction::Snip => {
+            super_keys_down(conn, super_keycodes)? && shift_keys_down(conn, shift_keycodes)?
+        }
+    };
 
-    let super_down = super_keys_down(conn, super_keycodes)?;
-    if !super_down {
-        return Ok(false);
+    if should_trigger {
+        dispatch_action(app, binding.action);
+        Ok(true)
+    } else {
+        replay_key(conn, root, binding.keycode)?;
+        Ok(false)
     }
+}
 
-    match binding.action {
-        HotkeyAction::Clipboard => Ok(true),
-        HotkeyAction::Snip => shift_keys_down(conn, shift_keycodes),
-    }
+fn replay_key(conn: &RustConnection, root: Window, keycode: u8) -> Result<(), String> {
+    conn.xtest_fake_input(KEY_PRESS_EVENT, keycode, 0, root, 0, 0, 0)
+        .map_err(|e| e.to_string())?
+        .check()
+        .map_err(|e| format!("failed to replay key press: {e:?}"))?;
+    conn.xtest_fake_input(KEY_RELEASE_EVENT, keycode, 0, root, 0, 0, 0)
+        .map_err(|e| e.to_string())?
+        .check()
+        .map_err(|e| format!("failed to replay key release: {e:?}"))?;
+    conn.flush().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 fn dispatch_action(app: &AppHandle, action: HotkeyAction) {
@@ -306,7 +361,7 @@ fn send_escape_to_window(
     use x11rb::protocol::xproto::{KeyPressEvent, KeyReleaseEvent};
 
     let press = KeyPressEvent {
-        response_type: x11rb::protocol::xproto::KEY_PRESS_EVENT,
+        response_type: KEY_PRESS_EVENT,
         detail: escape_keycode,
         sequence: 0,
         time: 0,
@@ -322,7 +377,7 @@ fn send_escape_to_window(
     };
 
     let release = KeyReleaseEvent {
-        response_type: x11rb::protocol::xproto::KEY_RELEASE_EVENT,
+        response_type: KEY_RELEASE_EVENT,
         detail: escape_keycode,
         sequence: 0,
         time: 1,

@@ -10,7 +10,7 @@ AUTOSTART_DIR="$HOME/.config/autostart"
 
 if [[ ! -x "$BINARY" ]]; then
   echo "Release binary not found at $BINARY"
-  echo "Run: ./scripts/build-env.sh npm run tauri build"
+  echo "Run: ./scripts/build-release.sh"
   exit 1
 fi
 
