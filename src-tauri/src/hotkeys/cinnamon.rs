@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 use std::process::Command;
 
+const CUSTOM_KEYS_PARENT: &str = "org.cinnamon.desktop.keybindings";
+const CUSTOM_KEYS_BASE: &str = "/org/cinnamon/desktop/keybindings/custom-keybindings";
+const DUMMY_CUSTOM_ENTRY: &str = "__dummy__";
 const CLIPBOARD_ID: &str = "custom3";
 const SNIP_ID: &str = "custom4";
 
@@ -22,8 +25,13 @@ pub fn register() -> Result<bool, String> {
         "['<Super><Shift>s']",
         &format!("{} snip", cli.display()),
     )?;
+    notify_cinnamon_refresh()?;
 
     Ok(true)
+}
+
+fn schema_for_id(id: &str) -> String {
+    format!("org.cinnamon.desktop.keybindings.custom-keybinding:{CUSTOM_KEYS_BASE}/{id}/")
 }
 
 fn is_cinnamon() -> bool {
@@ -34,8 +42,7 @@ fn is_cinnamon() -> bool {
             .args(["list-schemas"])
             .output()
             .map(|output| {
-                String::from_utf8_lossy(&output.stdout)
-                    .contains("org.cinnamon.desktop.keybindings")
+                String::from_utf8_lossy(&output.stdout).contains(CUSTOM_KEYS_PARENT)
             })
             .unwrap_or(false)
 }
@@ -68,28 +75,32 @@ fn resolve_cli_path() -> Result<PathBuf, String> {
 
 fn register_binding(id: &str, name: &str, binding: &str, command: &str) -> Result<(), String> {
     ensure_custom_id(id)?;
-    gsettings_set(&format!("org.cinnamon.desktop.keybindings.custom-keybinding:/{id}/"), "name", name)?;
-    gsettings_set(
-        &format!("org.cinnamon.desktop.keybindings.custom-keybinding:/{id}/"),
-        "binding",
-        binding,
-    )?;
-    gsettings_set(
-        &format!("org.cinnamon.desktop.keybindings.custom-keybinding:/{id}/"),
-        "command",
-        command,
-    )?;
+    let schema = schema_for_id(id);
+    gsettings_set(&schema, "name", name)?;
+    gsettings_set(&schema, "binding", binding)?;
+    gsettings_set(&schema, "command", command)?;
     Ok(())
 }
 
 fn ensure_custom_id(id: &str) -> Result<(), String> {
-    let current = gsettings_get("org.cinnamon.desktop.keybindings", "custom-list")?;
+    let current = gsettings_get(CUSTOM_KEYS_PARENT, "custom-list")?;
     let mut entries = parse_gsettings_list(&current);
     if !entries.iter().any(|entry| entry == id) {
         entries.push(id.to_string());
         let serialized = format_gsettings_list(&entries);
-        gsettings_set("org.cinnamon.desktop.keybindings", "custom-list", &serialized)?;
+        gsettings_set(CUSTOM_KEYS_PARENT, "custom-list", &serialized)?;
     }
+    Ok(())
+}
+
+fn notify_cinnamon_refresh() -> Result<(), String> {
+    let current = gsettings_get(CUSTOM_KEYS_PARENT, "custom-list")?;
+    let mut entries = parse_gsettings_list(&current);
+    entries.retain(|entry| entry != DUMMY_CUSTOM_ENTRY);
+    entries.push(DUMMY_CUSTOM_ENTRY.to_string());
+    gsettings_set(CUSTOM_KEYS_PARENT, "custom-list", &format_gsettings_list(&entries))?;
+    entries.retain(|entry| entry != DUMMY_CUSTOM_ENTRY);
+    gsettings_set(CUSTOM_KEYS_PARENT, "custom-list", &format_gsettings_list(&entries))?;
     Ok(())
 }
 
