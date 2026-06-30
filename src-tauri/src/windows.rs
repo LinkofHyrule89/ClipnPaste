@@ -6,9 +6,12 @@ const SNIP_OVERLAY_LABEL: &str = "snip-overlay";
 const SNIP_TOAST_LABEL: &str = "snip-toast";
 const SNIP_EDITOR_LABEL: &str = "snip-editor";
 
+const CLIPBOARD_WIDTH: u32 = 420;
+const CLIPBOARD_HEIGHT: u32 = 560;
+
 pub fn show_clipboard_panel(app: &AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(CLIPBOARD_LABEL) {
-        position_near_cursor(&window)?;
+        position_bottom_right(&window, CLIPBOARD_WIDTH, CLIPBOARD_HEIGHT)?;
         window
             .set_always_on_top(true)
             .map_err(|e| e.to_string())?;
@@ -23,7 +26,7 @@ pub fn show_clipboard_panel(app: &AppHandle) -> Result<(), String> {
         WebviewUrl::App("index.html?window=clipboard".into()),
     )
     .title("Clipboard")
-    .inner_size(420.0, 560.0)
+    .inner_size(CLIPBOARD_WIDTH as f64, CLIPBOARD_HEIGHT as f64)
     .resizable(false)
     .decorations(false)
     .always_on_top(true)
@@ -32,7 +35,7 @@ pub fn show_clipboard_panel(app: &AppHandle) -> Result<(), String> {
     .build()
     .map_err(|e| e.to_string())?;
 
-    position_near_cursor(&window)?;
+    position_bottom_right(&window, CLIPBOARD_WIDTH, CLIPBOARD_HEIGHT)?;
     Ok(())
 }
 
@@ -115,7 +118,7 @@ pub fn hide_snip_overlay(app: &AppHandle) {
 pub fn show_snip_toast(app: &AppHandle) -> Result<(), String> {
     ensure_snip_toast(app)?;
     if let Some(window) = app.get_webview_window(SNIP_TOAST_LABEL) {
-        position_bottom_right(&window)?;
+        position_bottom_right(&window, 280, 96)?;
         window.show().map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -167,15 +170,6 @@ pub fn show_snip_editor(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn position_near_cursor(window: &tauri::WebviewWindow) -> Result<(), String> {
-    let cursor = window.cursor_position().unwrap_or(tauri::PhysicalPosition::new(200.0, 200.0));
-    let x = cursor.x.max(40.0) as i32;
-    let y = cursor.y.max(40.0) as i32;
-    window
-        .set_position(PhysicalPosition::new(x, y))
-        .map_err(|e| e.to_string())
-}
-
 fn center_top(window: &tauri::WebviewWindow) -> Result<(), String> {
     if let Ok(monitor) = window.current_monitor() {
         if let Some(monitor) = monitor {
@@ -192,12 +186,18 @@ fn center_top(window: &tauri::WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
-fn position_bottom_right(window: &tauri::WebviewWindow) -> Result<(), String> {
+fn position_bottom_right(
+    window: &tauri::WebviewWindow,
+    default_width: u32,
+    default_height: u32,
+) -> Result<(), String> {
     if let Ok(monitor) = window.current_monitor() {
         if let Some(monitor) = monitor {
             let size = monitor.size();
             let pos = monitor.position();
-            let win_size = window.outer_size().unwrap_or(PhysicalSize::new(280, 96));
+            let win_size = window
+                .outer_size()
+                .unwrap_or(PhysicalSize::new(default_width, default_height));
             let x = pos.x + size.width as i32 - win_size.width as i32 - 24;
             let y = pos.y + size.height as i32 - win_size.height as i32 - 48;
             window

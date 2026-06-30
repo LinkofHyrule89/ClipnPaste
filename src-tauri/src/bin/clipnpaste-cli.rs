@@ -12,8 +12,8 @@ fn main() {
         std::process::exit(1);
     }
 
-    let socket = dirs::cache_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+    let socket = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("clipnpaste")
         .join("ipc.sock");
 

@@ -19,11 +19,10 @@ use tauri::{
 pub fn run() {
     #[cfg(not(target_os = "linux"))]
     let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build());
 
     #[cfg(target_os = "linux")]
-    let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+    let builder = tauri::Builder::default();
 
     builder
         .setup(|app| {

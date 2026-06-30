@@ -13,8 +13,8 @@ pub static CHORD_USED: AtomicBool = AtomicBool::new(false);
 static LAST_CHORD_MS: AtomicU64 = AtomicU64::new(0);
 
 pub fn socket_path() -> std::path::PathBuf {
-    dirs::cache_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+    dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("clipnpaste")
         .join("ipc.sock")
 }
