@@ -2,6 +2,7 @@ mod clipboard;
 mod commands;
 mod db;
 mod hotkeys;
+mod ipc;
 mod snip;
 mod windows;
 

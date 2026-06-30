@@ -1,11 +1,19 @@
 #[cfg(target_os = "linux")]
+mod cinnamon;
+#[cfg(target_os = "linux")]
 mod x11;
 
 use tauri::AppHandle;
 
 pub fn setup(app: &AppHandle) -> Result<(), String> {
+    crate::ipc::start(app.clone())?;
+
     #[cfg(target_os = "linux")]
     {
+        if cinnamon::register()? {
+            x11::start_menu_guard();
+            return Ok(());
+        }
         return x11::setup(app);
     }
 

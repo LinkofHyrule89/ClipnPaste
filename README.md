@@ -48,9 +48,9 @@ The `.deb` package is written to `src-tauri/target/release/bundle/deb/`.
 
 ## Mint Menu / Cinnamon shortcuts
 
-ClipnPaste registers `Super+V` and `Super+Shift+S` at the X11 level with chord-aware handling, so you can keep the Mint Menu bound to Super. If a chord was used, ClipnPaste also dismisses the menu automatically when Super is released.
+On Cinnamon, ClipnPaste registers `Super+V` and `Super+Shift+S` through the desktop keybinding system (the same path used by panel applets), so Mint Menu can keep Super on its own. On other desktops it falls back to X11 chord handling.
 
-If either shortcut still does not work, open **System Settings → Keyboard → Shortcuts** and remove any conflicting bindings on those keys.
+If either shortcut still does not work, open **System Settings → Keyboard → Shortcuts → Custom Shortcuts** and confirm the ClipnPaste entries are present and not conflicting.
 
 ## Autostart
 

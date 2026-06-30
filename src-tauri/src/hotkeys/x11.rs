@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use tauri::AppHandle;
 use x11rb::connection::Connection;
@@ -8,14 +8,12 @@ use x11rb::properties::WmClass;
 use x11rb::protocol::xproto::{
     ConnectionExt, GrabMode, KeyButMask, ModMask, Window, KEY_PRESS_EVENT, KEY_RELEASE_EVENT,
 };
-use x11rb::protocol::xtest::ConnectionExt as XTestConnectionExt;
 use x11rb::protocol::Event;
 use x11rb::rust_connection::RustConnection;
 use xkeysym::RawKeysym;
 
+use crate::ipc;
 use crate::windows;
-
-static CHORD_USED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum HotkeyAction {
@@ -27,8 +25,6 @@ struct HotkeyBinding {
     action: HotkeyAction,
     keycode: u8,
     mods: ModMask,
-    /// Plain grabs (modifier 0) check physical modifier state and replay otherwise.
-    plain: bool,
 }
 
 pub fn setup(app: &AppHandle) -> Result<(), String> {
@@ -42,7 +38,19 @@ pub fn setup(app: &AppHandle) -> Result<(), String> {
         })
         .map_err(|e| e.to_string())?;
 
+    start_menu_guard();
     Ok(())
+}
+
+pub fn start_menu_guard() {
+    std::thread::Builder::new()
+        .name("clipnpaste-menu-guard".into())
+        .spawn(|| {
+            if let Err(err) = run_menu_guard_loop() {
+                eprintln!("ClipnPaste menu guard exited: {err}");
+            }
+        })
+        .ok();
 }
 
 fn chord_mod_mask() -> KeyButMask {
@@ -53,18 +61,9 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
     let (conn, screen) = RustConnection::connect(None)
         .map_err(|e| format!("failed to connect to X11 display: {e}"))?;
 
-    conn.xtest_get_version(2, 2)
-        .map_err(|e| format!("failed to initialize XTest extension: {e}"))?
-        .reply()
-        .map_err(|e| format!("failed to initialize XTest extension: {e}"))?;
-
     let root = conn.setup().roots[screen].root;
     let super_keycodes = keycodes_for_keysyms(&conn, &[xkeysym::key::Super_L, xkeysym::key::Super_R])?;
     let shift_keycodes = keycodes_for_keysyms(&conn, &[xkeysym::key::Shift_L, xkeysym::key::Shift_R])?;
-    let escape_keycode = keycodes_for_keysyms(&conn, &[xkeysym::key::Escape])?
-        .into_iter()
-        .next()
-        .ok_or_else(|| "unable to resolve Escape keycode".to_string())?;
 
     let v_keycode = required_keycode(&conn, xkeysym::key::V, "V")?;
     let s_keycode = required_keycode(&conn, xkeysym::key::S, "S")?;
@@ -74,25 +73,11 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
             action: HotkeyAction::Clipboard,
             keycode: v_keycode,
             mods: ModMask::from(KeyButMask::MOD4.bits()),
-            plain: false,
-        },
-        HotkeyBinding {
-            action: HotkeyAction::Clipboard,
-            keycode: v_keycode,
-            mods: ModMask::default(),
-            plain: true,
         },
         HotkeyBinding {
             action: HotkeyAction::Snip,
             keycode: s_keycode,
             mods: ModMask::from(KeyButMask::MOD4.bits() | KeyButMask::SHIFT.bits()),
-            plain: false,
-        },
-        HotkeyBinding {
-            action: HotkeyAction::Snip,
-            keycode: s_keycode,
-            mods: ModMask::default(),
-            plain: true,
         },
     ];
 
@@ -101,8 +86,8 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
         register_binding(&conn, root, &mut registered, binding)?;
     }
 
-    let mut super_was_down = super_keys_down(&conn, &super_keycodes)?;
-    let mut last_chord_at: Option<Instant> = None;
+    let mut v_plain_grabbed = false;
+    let mut s_plain_grabbed = false;
 
     loop {
         if let Some(event) = conn.poll_for_event().map_err(|e| e.to_string())? {
@@ -112,81 +97,104 @@ fn run_hotkey_loop(app: AppHandle) -> Result<(), String> {
 
                 if let Some(entries) = registered.get(&keycode) {
                     for binding in entries {
-                        if event_mods != binding.mods {
-                            continue;
-                        }
-
-                        if binding.plain {
-                            if handle_plain_press(
-                                binding,
-                                &conn,
-                                root,
-                                &super_keycodes,
-                                &shift_keycodes,
-                                &app,
-                            )? {
-                                CHORD_USED.store(true, Ordering::SeqCst);
-                                last_chord_at = Some(Instant::now());
-                            }
-                        } else {
-                            CHORD_USED.store(true, Ordering::SeqCst);
-                            last_chord_at = Some(Instant::now());
+                        if event_mods == binding.mods {
+                            ipc::mark_chord_used();
                             dispatch_action(&app, binding.action);
+                            break;
                         }
-                        break;
                     }
                 }
             }
         }
 
-        let super_is_down = super_keys_down(&conn, &super_keycodes)?;
-        if super_was_down
-            && !super_is_down
-            && CHORD_USED.swap(false, Ordering::SeqCst)
-            && last_chord_at.is_some_and(|t| t.elapsed() < Duration::from_millis(800))
-        {
-            dismiss_mintmenu(escape_keycode);
-        }
-        super_was_down = super_is_down;
+        let super_down = super_keys_down(&conn, &super_keycodes)?;
+        let shift_down = shift_keys_down(&conn, &shift_keycodes)?;
+        update_dynamic_grabs(
+            &conn,
+            root,
+            &mut registered,
+            v_keycode,
+            s_keycode,
+            super_down,
+            shift_down,
+            &mut v_plain_grabbed,
+            &mut s_plain_grabbed,
+        )?;
 
         std::thread::sleep(Duration::from_millis(1));
     }
 }
 
-fn handle_plain_press(
-    binding: &HotkeyBinding,
-    conn: &RustConnection,
-    root: Window,
-    super_keycodes: &[u8],
-    shift_keycodes: &[u8],
-    app: &AppHandle,
-) -> Result<bool, String> {
-    let should_trigger = match binding.action {
-        HotkeyAction::Clipboard => super_keys_down(conn, super_keycodes)?,
-        HotkeyAction::Snip => {
-            super_keys_down(conn, super_keycodes)? && shift_keys_down(conn, shift_keycodes)?
-        }
-    };
+fn run_menu_guard_loop() -> Result<(), String> {
+    let (conn, _) = RustConnection::connect(None)
+        .map_err(|e| format!("failed to connect to X11 display: {e}"))?;
+    let super_keycodes = keycodes_for_keysyms(&conn, &[xkeysym::key::Super_L, xkeysym::key::Super_R])?;
+    let escape_keycode = keycodes_for_keysyms(&conn, &[xkeysym::key::Escape])?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "unable to resolve Escape keycode".to_string())?;
 
-    if should_trigger {
-        dispatch_action(app, binding.action);
-        Ok(true)
-    } else {
-        replay_key(conn, root, binding.keycode)?;
-        Ok(false)
+    let mut super_was_down = super_keys_down(&conn, &super_keycodes)?;
+
+    loop {
+        let super_is_down = super_keys_down(&conn, &super_keycodes)?;
+        if super_was_down
+            && !super_is_down
+            && ipc::CHORD_USED.swap(false, Ordering::SeqCst)
+            && ipc::chord_used_recently(800)
+        {
+            dismiss_mintmenu(escape_keycode);
+        }
+        super_was_down = super_is_down;
+        std::thread::sleep(Duration::from_millis(4));
     }
 }
 
-fn replay_key(conn: &RustConnection, root: Window, keycode: u8) -> Result<(), String> {
-    conn.xtest_fake_input(KEY_PRESS_EVENT, keycode, 0, root, 0, 0, 0)
-        .map_err(|e| e.to_string())?
-        .check()
-        .map_err(|e| format!("failed to replay key press: {e:?}"))?;
-    conn.xtest_fake_input(KEY_RELEASE_EVENT, keycode, 0, root, 0, 0, 0)
-        .map_err(|e| e.to_string())?
-        .check()
-        .map_err(|e| format!("failed to replay key release: {e:?}"))?;
-    conn.flush().map_err(|e| e.to_string())?;
+fn update_dynamic_grabs(
+    conn: &RustConnection,
+    root: Window,
+    registered: &mut BTreeMap<u8, Vec<HotkeyBinding>>,
+    v_keycode: u8,
+    s_keycode: u8,
+    super_down: bool,
+    shift_down: bool,
+    v_plain_grabbed: &mut bool,
+    s_plain_grabbed: &mut bool,
+) -> Result<(), String> {
+    if super_down && !*v_plain_grabbed {
+        register_binding(
+            conn,
+            root,
+            registered,
+            HotkeyBinding {
+                action: HotkeyAction::Clipboard,
+                keycode: v_keycode,
+                mods: ModMask::default(),
+            },
+        )?;
+        *v_plain_grabbed = true;
+    } else if !super_down && *v_plain_grabbed {
+        unregister_binding(conn, root, registered, v_keycode, ModMask::default())?;
+        *v_plain_grabbed = false;
+    }
+
+    if super_down && shift_down && !*s_plain_grabbed {
+        register_binding(
+            conn,
+            root,
+            registered,
+            HotkeyBinding {
+                action: HotkeyAction::Snip,
+                keycode: s_keycode,
+                mods: ModMask::default(),
+            },
+        )?;
+        *s_plain_grabbed = true;
+    } else if !(super_down && shift_down) && *s_plain_grabbed {
+        unregister_binding(conn, root, registered, s_keycode, ModMask::default())?;
+        *s_plain_grabbed = false;
+    }
+
     Ok(())
 }
 
@@ -231,7 +239,30 @@ fn register_binding(
         .map_err(|e| format!("failed to register {:?} hotkey: {e:?}", binding.action))?;
     }
 
-    registered.entry(binding.keycode).or_default().push(binding);
+    let entry = registered.entry(binding.keycode).or_default();
+    if !entry.iter().any(|existing| existing.mods == binding.mods) {
+        entry.push(binding);
+    }
+    Ok(())
+}
+
+fn unregister_binding(
+    conn: &RustConnection,
+    root: Window,
+    registered: &mut BTreeMap<u8, Vec<HotkeyBinding>>,
+    keycode: u8,
+    mods: ModMask,
+) -> Result<(), String> {
+    for lock_mod in ignored_mods() {
+        conn.ungrab_key(keycode, root, mods | lock_mod)
+            .map_err(|e| e.to_string())?
+            .check()
+            .map_err(|e| format!("failed to unregister hotkey: {e:?}"))?;
+    }
+
+    if let Some(entry) = registered.get_mut(&keycode) {
+        entry.retain(|binding| binding.mods != mods);
+    }
     Ok(())
 }
 
