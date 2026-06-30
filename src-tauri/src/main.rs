@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    tmpclipnpaste_scaffold_lib::run()
+    clipnpaste_lib::run()
 }

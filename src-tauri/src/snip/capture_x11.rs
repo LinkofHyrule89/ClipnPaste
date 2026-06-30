@@ -29,16 +29,16 @@ pub fn list_windows() -> Result<Vec<WindowInfo>, CaptureError> {
     let windows = Window::all().map_err(|e| CaptureError::Message(e.to_string()))?;
     let mut result = Vec::new();
     for window in windows {
-        let title = window.title().unwrap_or_default();
-        let app_name = window.app_name().unwrap_or_default();
+        let title = window.title().to_string();
+        let app_name = window.app_name().to_string();
         if title.is_empty() && app_name.is_empty() {
             continue;
         }
-        if window.is_minimized().unwrap_or(false) {
+        if window.is_minimized() {
             continue;
         }
         result.push(WindowInfo {
-            id: window.id().map_err(|e| CaptureError::Message(e.to_string()))?,
+            id: window.id(),
             title,
             app_name,
         });
@@ -51,7 +51,7 @@ pub fn capture_fullscreen() -> Result<CaptureResult, CaptureError> {
     let monitors = Monitor::all().map_err(|e| CaptureError::Message(e.to_string()))?;
     let monitor = monitors
         .into_iter()
-        .find(|m| m.is_primary().unwrap_or(false))
+        .find(|m| m.is_primary())
         .or_else(|| Monitor::all().ok()?.into_iter().next())
         .ok_or_else(|| CaptureError::Message("No monitor found".into()))?;
     capture_monitor(&monitor)
@@ -61,9 +61,11 @@ pub fn capture_window(window_id: u32) -> Result<CaptureResult, CaptureError> {
     let windows = Window::all().map_err(|e| CaptureError::Message(e.to_string()))?;
     let window = windows
         .into_iter()
-        .find(|w| w.id().ok() == Some(window_id))
+        .find(|w| w.id() == window_id)
         .ok_or_else(|| CaptureError::Message("Window not found".into()))?;
-    let image = window.capture_image().map_err(|e| CaptureError::Message(e.to_string()))?;
+    let image = window
+        .capture_image()
+        .map_err(|e| CaptureError::Message(e.to_string()))?;
     encode_image(&image)
 }
 
@@ -72,27 +74,25 @@ pub fn capture_region(x: i32, y: i32, width: u32, height: u32) -> Result<Capture
         return Err(CaptureError::Message("Invalid region size".into()));
     }
 
-    let monitors = Monitor::all().map_err(|e| CaptureError::Message(e.to_string()))?;
-    for monitor in monitors {
-        let mx = monitor.x().map_err(|e| CaptureError::Message(e.to_string()))?;
-        let my = monitor.y().map_err(|e| CaptureError::Message(e.to_string()))?;
-        let mw = monitor.width().map_err(|e| CaptureError::Message(e.to_string()))? as i32;
-        let mh = monitor.height().map_err(|e| CaptureError::Message(e.to_string()))? as i32;
+    let monitor = Monitor::from_point(x, y).map_err(|e| CaptureError::Message(e.to_string()))?;
+    let image = monitor
+        .capture_image()
+        .map_err(|e| CaptureError::Message(e.to_string()))?;
+    let mx = monitor.x();
+    let my = monitor.y();
+    let mw = monitor.width() as i32;
+    let mh = monitor.height() as i32;
 
-        if x >= mx && y >= my && x < mx + mw && y < my + mh {
-            let image = monitor
-                .capture_image()
-                .map_err(|e| CaptureError::Message(e.to_string()))?;
-            let rx = (x - mx) as u32;
-            let ry = (y - my) as u32;
-            let crop_w = width.min(mw as u32 - rx);
-            let crop_h = height.min(mh as u32 - ry);
-            let cropped = image::imageops::crop_imm(&image, rx, ry, crop_w, crop_h).to_image();
-            return encode_image(&cropped);
-        }
+    if x < mx || y < my || x >= mx + mw || y >= my + mh {
+        return Err(CaptureError::Message("Region outside monitor".into()));
     }
 
-    Err(CaptureError::Message("Region outside monitors".into()))
+    let rx = (x - mx) as u32;
+    let ry = (y - my) as u32;
+    let crop_w = width.min(mw as u32 - rx);
+    let crop_h = height.min(mh as u32 - ry);
+    let cropped = image::imageops::crop_imm(&image, rx, ry, crop_w, crop_h).to_image();
+    encode_image(&cropped)
 }
 
 fn capture_monitor(monitor: &Monitor) -> Result<CaptureResult, CaptureError> {

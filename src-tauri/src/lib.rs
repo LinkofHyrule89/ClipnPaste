@@ -28,7 +28,7 @@ pub fn run() {
             app.manage(AppState { db });
 
             setup_tray(app.handle())?;
-            setup_shortcuts(app.handle())?;
+            setup_shortcuts(app.handle()).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             preload_windows(app.handle())?;
 
             if let Some(window) = app.get_webview_window("main") {
@@ -103,20 +103,24 @@ fn preload_windows(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn setup_shortcuts(app: &AppHandle) -> tauri::Result<()> {
+fn setup_shortcuts(app: &AppHandle) -> Result<(), String> {
     let app_handle = app.clone();
-    app.global_shortcut().on_shortcut("Super+V", move |_app, _shortcut, event| {
-        if event.state == ShortcutState::Pressed {
-            let _ = windows::show_clipboard_panel(&app_handle);
-        }
-    })?;
+    app.global_shortcut()
+        .on_shortcut("Super+V", move |_app, _shortcut, event| {
+            if event.state == ShortcutState::Pressed {
+                let _ = windows::show_clipboard_panel(&app_handle);
+            }
+        })
+        .map_err(|e| e.to_string())?;
 
     let app_handle = app.clone();
-    app.global_shortcut().on_shortcut("Super+Shift+S", move |_app, _shortcut, event| {
-        if event.state == ShortcutState::Pressed {
-            let _ = windows::show_snip_toolbar(&app_handle);
-        }
-    })?;
+    app.global_shortcut()
+        .on_shortcut("Super+Shift+S", move |_app, _shortcut, event| {
+            if event.state == ShortcutState::Pressed {
+                let _ = windows::show_snip_toolbar(&app_handle);
+            }
+        })
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
