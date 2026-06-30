@@ -38,3 +38,7 @@ body {
 .snip-drag-handle {
   @apply flex h-9 w-6 cursor-grab items-center justify-center rounded-md text-sm text-white/45 transition hover:bg-neutral-900/50 active:cursor-grabbing;
 }
+
+.clipboard-drag-handle {
+  @apply cursor-grab rounded-md py-0.5 pr-2 active:cursor-grabbing;
+}

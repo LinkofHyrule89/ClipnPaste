@@ -57,6 +57,12 @@ export function ClipboardPanel() {
     await getCurrentWindow().hide();
   };
 
+  const startDrag = (event: React.MouseEvent) => {
+    if (event.button === 0) {
+      void getCurrentWindow().startDragging();
+    }
+  };
+
   const selectItem = async (item: ClipItemSummary) => {
     await copyItemToClipboard(item.id);
     await close();
@@ -100,7 +106,11 @@ export function ClipboardPanel() {
     <div className="h-screen w-screen p-2">
       <div className="glass-panel flex h-full flex-col overflow-hidden text-white">
         <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-          <div>
+          <div
+            className="clipboard-drag-handle min-w-0 flex-1 select-none"
+            onMouseDown={startDrag}
+            title="Drag to move"
+          >
             <h1 className="text-sm font-semibold">Clipboard</h1>
             <p className="text-xs text-white/50">Super+V</p>
           </div>
