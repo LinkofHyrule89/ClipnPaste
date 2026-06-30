@@ -1,6 +1,7 @@
 mod clipboard;
 mod commands;
 mod db;
+mod hotkeys;
 mod snip;
 mod windows;
 
@@ -13,13 +14,17 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    #[cfg(not(target_os = "linux"))]
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build());
+
+    #[cfg(target_os = "linux")]
+    let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+
+    builder
         .setup(|app| {
             let database = Database::open().expect("failed to open database");
             let db = Arc::new(Mutex::new(database));
@@ -28,7 +33,7 @@ pub fn run() {
             app.manage(AppState { db });
 
             setup_tray(app.handle())?;
-            setup_shortcuts(app.handle()).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            hotkeys::setup(app.handle()).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
             preload_windows(app.handle())?;
 
             if let Some(window) = app.get_webview_window("main") {
@@ -103,24 +108,3 @@ fn preload_windows(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn setup_shortcuts(app: &AppHandle) -> Result<(), String> {
-    let app_handle = app.clone();
-    app.global_shortcut()
-        .on_shortcut("Super+V", move |_app, _shortcut, event| {
-            if event.state == ShortcutState::Pressed {
-                let _ = windows::show_clipboard_panel(&app_handle);
-            }
-        })
-        .map_err(|e| e.to_string())?;
-
-    let app_handle = app.clone();
-    app.global_shortcut()
-        .on_shortcut("Super+Shift+S", move |_app, _shortcut, event| {
-            if event.state == ShortcutState::Pressed {
-                let _ = windows::show_snip_toolbar(&app_handle);
-            }
-        })
-        .map_err(|e| e.to_string())?;
-
-    Ok(())
-}

@@ -39,9 +39,11 @@ npm run tauri build
 
 The `.deb` package is written to `src-tauri/target/release/bundle/deb/`.
 
-## Cinnamon setup
+## Mint Menu / Cinnamon shortcuts
 
-If `Super+V` or `Super+Shift+S` do not work, open **System Settings → Keyboard → Shortcuts** and remove any conflicting bindings on those keys.
+ClipnPaste registers `Super+V` and `Super+Shift+S` at the X11 level with chord-aware handling, so you can keep the Mint Menu bound to Super. If a chord was used, ClipnPaste also dismisses the menu automatically when Super is released.
+
+If either shortcut still does not work, open **System Settings → Keyboard → Shortcuts** and remove any conflicting bindings on those keys.
 
 ## Autostart
 
