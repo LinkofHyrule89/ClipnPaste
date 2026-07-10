@@ -1,6 +1,9 @@
 use crate::clipboard::{
     emit_history_changed,
-    monitor::{image_content_and_preview, preview_text, write_item_to_clipboard, write_text},
+    monitor::{
+        image_content_and_preview, mark_live_clipboard_as_seen, preview_text,
+        write_item_to_clipboard, write_text,
+    },
     ClipItemSummary, ClipItemType,
 };
 use crate::db::Database;
@@ -71,6 +74,8 @@ pub fn delete_item(app: AppHandle, state: State<'_, AppState>, id: String) -> Re
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.delete_item(&id).map_err(|e| e.to_string())?;
     drop(db);
+    // Don't re-ingest the live clipboard until it changes (avoids delete → flash back).
+    mark_live_clipboard_as_seen();
     emit_history_changed(&app);
     Ok(())
 }
@@ -80,6 +85,9 @@ pub fn clear_unpinned(app: AppHandle, state: State<'_, AppState>) -> Result<(), 
     let db = state.db.lock().map_err(|e| e.to_string())?;
     db.clear_unpinned().map_err(|e| e.to_string())?;
     drop(db);
+    // Keep list empty: treat current system clipboard as already seen.
+    // A *new* copy (different content) still updates history on the next poll.
+    mark_live_clipboard_as_seen();
     emit_history_changed(&app);
     Ok(())
 }

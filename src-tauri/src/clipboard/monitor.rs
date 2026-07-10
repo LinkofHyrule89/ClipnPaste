@@ -4,11 +4,12 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use gtk::glib::{self, ControlFlow};
 use image::imageops::FilterType;
 use image::ImageEncoder;
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256}; // Digest used in probe_image
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
+use super::policy::{choose_capture, hash_bytes, CaptureKind};
 use super::types::ClipItemType;
 
 /// Frontend listens for this and reloads history (payload is unused unit).
@@ -17,18 +18,49 @@ pub const HISTORY_CHANGED: &str = "history-changed";
 const THUMB_MAX_EDGE: u32 = 240;
 const POLL_MS: u64 = 400;
 
-/// Shared last-seen clipboard content hash so app writes skip re-processing.
-static LAST_HASH: OnceLock<Arc<Mutex<String>>> = OnceLock::new();
+/// Separate gates for text vs image. A single shared hash caused new text
+/// copies to be ignored when X11 still exposed a stale image target.
+#[derive(Default)]
+struct SeenHashes {
+    text: String,
+    image: String,
+}
 
-fn last_hash() -> Arc<Mutex<String>> {
-    LAST_HASH
-        .get_or_init(|| Arc::new(Mutex::new(String::new())))
+static SEEN: OnceLock<Arc<Mutex<SeenHashes>>> = OnceLock::new();
+
+fn seen() -> Arc<Mutex<SeenHashes>> {
+    SEEN.get_or_init(|| Arc::new(Mutex::new(SeenHashes::default())))
         .clone()
 }
 
-pub fn mark_seen_hash(hash: String) {
-    if let Ok(mut guard) = last_hash().lock() {
-        *guard = hash;
+/// Mark whatever is currently on the system clipboard as already processed,
+/// without writing to history. Used after Clear all / delete so the live
+/// clipboard is not immediately re-inserted, while a *new* copy still is.
+pub fn mark_live_clipboard_as_seen() {
+    let Ok(mut clipboard) = Clipboard::new() else {
+        return;
+    };
+    let mut text_hash = String::new();
+    let mut image_hash = String::new();
+
+    if let Ok(image) = clipboard.get_image() {
+        if let Some(probe) = probe_image(image) {
+            image_hash = probe.hash;
+        }
+    }
+    if let Ok(text) = clipboard.get_text() {
+        if !text.is_empty() {
+            text_hash = hash_bytes(text.as_bytes());
+        }
+    }
+
+    if let Ok(mut guard) = seen().lock() {
+        if !text_hash.is_empty() {
+            guard.text = text_hash;
+        }
+        if !image_hash.is_empty() {
+            guard.image = image_hash;
+        }
     }
 }
 
@@ -40,10 +72,8 @@ pub struct ClipboardMonitor;
 
 impl ClipboardMonitor {
     pub fn start(app: AppHandle, db: Arc<Mutex<Database>>) -> Self {
-        let hash_state = last_hash();
-
         glib::timeout_add_local(Duration::from_millis(POLL_MS), move || {
-            poll_once(&app, &db, &hash_state);
+            poll_once(&app, &db);
             ControlFlow::Continue
         });
 
@@ -51,31 +81,43 @@ impl ClipboardMonitor {
     }
 }
 
-fn poll_once(app: &AppHandle, db: &Arc<Mutex<Database>>, hash_state: &Arc<Mutex<String>>) {
+fn poll_once(app: &AppHandle, db: &Arc<Mutex<Database>>) {
     let Ok(mut clipboard) = Clipboard::new() else {
         return;
     };
 
-    // Prefer image: image copies often include incidental text (URL, path, HTML).
-    if let Ok(image) = clipboard.get_image() {
-        if let Some(probe) = probe_image(image) {
-            {
-                let last = hash_state.lock().expect("hash lock");
-                if probe.hash == *last {
-                    return;
-                }
-            }
-            // Encode only when clipboard content actually changed (lock not held).
-            let Some((content, preview)) = encode_probed_image(probe.width, probe.height, probe.raw)
+    // Snapshot both formats. On X11, an old image target often remains after
+    // a new text copy — we must not ignore text when only the image hash matches.
+    let image = clipboard.get_image().ok().and_then(probe_image);
+    let text = clipboard.get_text().ok().filter(|t| !t.is_empty());
+
+    let text_hash = text.as_ref().map(|t| hash_bytes(t.as_bytes()));
+    let image_hash = image.as_ref().map(|p| p.hash.clone());
+
+    let kind = {
+        let seen_state = seen();
+        let guard = seen_state.lock().expect("seen lock");
+        choose_capture(
+            text.as_deref(),
+            text_hash.as_deref(),
+            image_hash.as_deref(),
+            &guard.text,
+            &guard.image,
+        )
+    };
+
+    match kind {
+        CaptureKind::None => {}
+        CaptureKind::Image => {
+            let Some(probe) = image else {
+                return;
+            };
+            let hash = probe.hash.clone();
+            let Some((content, preview)) =
+                encode_probed_image(probe.width, probe.height, probe.raw)
             else {
                 return;
             };
-            {
-                let mut last = hash_state.lock().expect("hash lock");
-                // Another writer may have updated; still mark this hash as seen.
-                *last = probe.hash;
-            }
-
             let inserted = {
                 let Ok(db) = db.lock() else {
                     return;
@@ -85,39 +127,38 @@ fn poll_once(app: &AppHandle, db: &Arc<Mutex<Database>>, hash_state: &Arc<Mutex<
                     .flatten()
             };
             if inserted.is_some() {
+                if let Ok(mut guard) = seen().lock() {
+                    guard.image = hash;
+                    if let Some(th) = text_hash {
+                        guard.text = th;
+                    }
+                }
                 emit_history_changed(app);
             }
-            return;
         }
-    }
-
-    if let Ok(text) = clipboard.get_text() {
-        if text.is_empty() {
-            return;
-        }
-        let hash = hash_bytes(text.as_bytes());
-        {
-            let last = hash_state.lock().expect("hash lock");
-            if hash == *last {
-                return;
-            }
-        }
-        {
-            let mut last = hash_state.lock().expect("hash lock");
-            *last = hash;
-        }
-
-        let preview = preview_text(&text);
-        let inserted = {
-            let Ok(db) = db.lock() else {
+        CaptureKind::Text => {
+            let Some(text) = text else {
                 return;
             };
-            db.insert_item(ClipItemType::Text, &text, &preview)
-                .ok()
-                .flatten()
-        };
-        if inserted.is_some() {
-            emit_history_changed(app);
+            let hash = text_hash.expect("text capture implies hash");
+            let preview = preview_text(&text);
+            let inserted = {
+                let Ok(db) = db.lock() else {
+                    return;
+                };
+                db.insert_item(ClipItemType::Text, &text, &preview)
+                    .ok()
+                    .flatten()
+            };
+            if inserted.is_some() {
+                if let Ok(mut guard) = seen().lock() {
+                    guard.text = hash;
+                    if let Some(ih) = image_hash {
+                        guard.image = ih;
+                    }
+                }
+                emit_history_changed(app);
+            }
         }
     }
 }
@@ -136,9 +177,6 @@ fn probe_image(image: ImageData) -> Option<ImageProbe> {
         return None;
     }
     let raw = image.bytes.into_owned();
-    if raw.len() != (width as usize).saturating_mul(height as usize).saturating_mul(4) {
-        // Unexpected buffer size — still try, but hash whatever we have.
-    }
     let mut hasher = Sha256::new();
     hasher.update(width.to_le_bytes());
     hasher.update(height.to_le_bytes());
@@ -179,7 +217,6 @@ pub fn preview_text(text: &str) -> String {
         preview.push('…');
     }
     if preview.len() > MAX_PREVIEW_BYTES {
-        // Leave room for a single ellipsis character (3 UTF-8 bytes).
         let mut end = MAX_PREVIEW_BYTES.saturating_sub(3);
         while end > 0 && !preview.is_char_boundary(end) {
             end -= 1;
@@ -216,15 +253,15 @@ fn make_thumbnail_data_url(img: &image::RgbaImage) -> Option<String> {
     Some(format!("data:image/png;base64,{b64}"))
 }
 
-pub fn hash_bytes(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    format!("{digest:x}")
-}
-
 pub fn write_text(text: &str) -> Result<(), String> {
     let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
     clipboard.set_text(text).map_err(|e| e.to_string())?;
-    mark_seen_hash(hash_bytes(text.as_bytes()));
+    let th = hash_bytes(text.as_bytes());
+    if let Ok(mut guard) = seen().lock() {
+        guard.text = th;
+        // App text write clears image intent for our gate.
+        guard.image.clear();
+    }
     Ok(())
 }
 
@@ -249,7 +286,10 @@ pub fn write_image_png(png_bytes: &[u8]) -> Result<(), String> {
     clipboard
         .set_image(image_data)
         .map_err(|e| e.to_string())?;
-    mark_seen_hash(hash);
+    if let Ok(mut guard) = seen().lock() {
+        guard.image = hash;
+        guard.text.clear();
+    }
     Ok(())
 }
 
@@ -297,7 +337,6 @@ mod tests {
         let preview = preview_text(text);
         assert!(preview.starts_with("a\nb\nc"));
         assert!(preview.ends_with('…'));
-        // First three lines only; fourth line body is not included as its own line.
         assert!(!preview.contains("\nd"));
         assert_eq!(preview.lines().count(), 3);
     }
@@ -316,18 +355,11 @@ mod tests {
     }
 
     #[test]
-    fn hash_bytes_stable() {
-        assert_eq!(hash_bytes(b"abc"), hash_bytes(b"abc"));
-        assert_ne!(hash_bytes(b"abc"), hash_bytes(b"abd"));
-    }
-
-    #[test]
     fn image_content_and_preview_roundtrip() {
         let png = tiny_png();
         let (content, preview) = image_content_and_preview(&png).unwrap();
         assert!(content.starts_with("data:image/png;base64,"));
         assert!(preview.starts_with("data:image/png;base64,"));
-        // Full content includes the original payload; preview is a (possibly same-size) thumb.
-        assert!(content.len() >= preview.len() || preview.len() > 0);
+        assert!(content.len() >= preview.len() || !preview.is_empty());
     }
 }

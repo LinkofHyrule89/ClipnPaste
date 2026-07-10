@@ -2,7 +2,7 @@
 
 **Windows 11-style clipboard history and snipping tool** for Linux Mint and other Debian-based desktops (X11 / Cinnamon).
 
-**Current version: [0.2.4](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.4)** · [Changelog](CHANGELOG.md)
+**Current version: [0.2.5](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.5)** · [Changelog](CHANGELOG.md)
 
 ## Screenshots
 
@@ -68,7 +68,7 @@ npm install
 npm run tauri dev
 ```
 
-Unit tests:
+Unit tests (DB flows, clear-all / re-copy gate, pin, edit, promote, text-vs-image policy — no display required):
 
 ```bash
 npm test

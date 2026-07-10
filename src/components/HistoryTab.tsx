@@ -266,7 +266,7 @@ export function HistoryTab() {
                     className="max-h-24 rounded-md border border-white/10 object-contain"
                   />
                 ) : (
-                  <p className="line-clamp-3 whitespace-pre-wrap text-sm text-white/90">
+                  <p className="min-w-0 max-h-32 overflow-y-auto whitespace-pre-wrap break-words text-sm text-white/90">
                     {item.preview}
                   </p>
                 )}

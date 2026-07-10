@@ -2,6 +2,20 @@
 
 All notable changes to ClipnPaste are documented in this file.
 
+## [0.2.5] - 2026-07-10
+
+### Fixed
+
+- After **Clear all** (or delete), the list stays empty; the live system clipboard is marked “seen” so it is not re-inserted, while **new** copies still appear without restarting
+- Clipboard monitor tracks **text and image hashes separately** so Ctrl+C/X text is not ignored when X11 still exposes a stale image target
+- New text copies win over stale images; image is preferred only when the accompanying text looks incidental (URL/path)
+- Monitor only stamps hashes after a successful history insert
+- History text wraps in the content column instead of clipping under edit/delete/pin buttons
+
+### Tests
+
+- Expanded unit tests for clear-all (no flash), copy-after-clear, pin, edit, promote-on-select, emoji text, and text-vs-image capture policy
+
 ## [0.2.4] - 2026-07-10
 
 ### Added
@@ -107,6 +121,7 @@ First public release for Linux Mint / Cinnamon (X11).
 - Normal `s` key typing no longer blocked while the app is running
 - Cinnamon Settings shows ClipnPaste under Custom Shortcuts
 
+[0.2.5]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.5
 [0.2.4]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.4
 [0.2.3]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.3
 [0.2.2]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.2
