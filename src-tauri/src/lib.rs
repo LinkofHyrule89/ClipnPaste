@@ -30,7 +30,7 @@ pub fn run() {
         .setup(|app| {
             let database = Database::open().expect("failed to open database");
             let db = Arc::new(Mutex::new(database));
-            let _monitor = ClipboardMonitor::start(db.clone());
+            let _monitor = ClipboardMonitor::start(app.handle().clone(), db.clone());
 
             app.manage(AppState {
                 db,
@@ -54,6 +54,8 @@ pub fn run() {
             commands::unpin_item,
             commands::delete_item,
             commands::clear_unpinned,
+            commands::get_item_content,
+            commands::update_item_text,
             commands::copy_item_to_clipboard,
             commands::copy_text_to_clipboard,
             commands::paste_text_to_target,

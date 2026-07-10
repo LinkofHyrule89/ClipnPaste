@@ -1,5 +1,7 @@
 use crate::clipboard::{
-    monitor::{write_item_to_clipboard, write_text}, ClipItemSummary, ClipItemType,
+    emit_history_changed,
+    monitor::{image_content_and_preview, preview_text, write_item_to_clipboard, write_text},
+    ClipItemSummary, ClipItemType,
 };
 use crate::db::Database;
 use crate::focus_target;
@@ -43,33 +45,73 @@ pub fn show_settings(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn get_history(state: State<'_, AppState>) -> Result<Vec<ClipItemSummary>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.list_items()
-        .map(|items| items.into_iter().map(ClipItemSummary::from).collect())
-        .map_err(|e| e.to_string())
+    db.list_summaries().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn pin_item(state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn pin_item(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.set_pinned(&id, true).map_err(|e| e.to_string())
+    db.set_pinned(&id, true).map_err(|e| e.to_string())?;
+    drop(db);
+    emit_history_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
-pub fn unpin_item(state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn unpin_item(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.set_pinned(&id, false).map_err(|e| e.to_string())
+    db.set_pinned(&id, false).map_err(|e| e.to_string())?;
+    drop(db);
+    emit_history_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
-pub fn delete_item(state: State<'_, AppState>, id: String) -> Result<(), String> {
+pub fn delete_item(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.delete_item(&id).map_err(|e| e.to_string())
+    db.delete_item(&id).map_err(|e| e.to_string())?;
+    drop(db);
+    emit_history_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
-pub fn clear_unpinned(state: State<'_, AppState>) -> Result<(), String> {
+pub fn clear_unpinned(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    db.clear_unpinned().map_err(|e| e.to_string())
+    db.clear_unpinned().map_err(|e| e.to_string())?;
+    drop(db);
+    emit_history_changed(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_item_content(state: State<'_, AppState>, id: String) -> Result<String, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let item = db
+        .get_item(&id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Item not found")?;
+    Ok(item.content)
+}
+
+#[tauri::command]
+pub fn update_item_text(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    content: String,
+) -> Result<(), String> {
+    let preview = preview_text(&content);
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let updated = db
+        .update_text_item(&id, &content, &preview)
+        .map_err(|e| e.to_string())?;
+    if updated.is_none() {
+        return Err("Unable to update item (missing, not text, or too large)".into());
+    }
+    drop(db);
+    emit_history_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -99,9 +141,23 @@ pub fn paste_item_to_target(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<(), String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let item = db.get_item(&id).map_err(|e| e.to_string())?.ok_or("Item not found")?;
+    let item = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.get_item(&id)
+            .map_err(|e| e.to_string())?
+            .ok_or("Item not found")?
+    };
+
+    // Put selection on the system clipboard so Ctrl+V pastes it next.
     write_item_to_clipboard(item.item_type, &item.content)?;
+
+    // Windows 11-style: selected history entry becomes the most recent.
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let _ = db.promote_item(&item.id).map_err(|e| e.to_string())?;
+    }
+    emit_history_changed(&app);
+
     windows::hide_clipboard_panel(&app);
 
     match item.item_type {
@@ -124,10 +180,24 @@ pub fn paste_item_to_target(
 }
 
 #[tauri::command]
-pub fn copy_item_to_clipboard(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let item = db.get_item(&id).map_err(|e| e.to_string())?.ok_or("Item not found")?;
-    write_item_to_clipboard(item.item_type, &item.content)
+pub fn copy_item_to_clipboard(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let item = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.get_item(&id)
+            .map_err(|e| e.to_string())?
+            .ok_or("Item not found")?
+    };
+    write_item_to_clipboard(item.item_type, &item.content)?;
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let _ = db.promote_item(&item.id).map_err(|e| e.to_string())?;
+    }
+    emit_history_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -171,9 +241,20 @@ pub fn snip_region(
 }
 
 #[tauri::command]
-pub fn copy_png_to_clipboard(png_base64: String) -> Result<(), String> {
+pub fn copy_png_to_clipboard(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    png_base64: String,
+) -> Result<(), String> {
     let bytes = STANDARD.decode(png_base64).map_err(|e| e.to_string())?;
-    crate::clipboard::monitor::write_image_png(&bytes)
+    crate::clipboard::monitor::write_image_png(&bytes)?;
+    let (content, preview) = image_content_and_preview(&bytes)?;
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let _ = db.insert_item(ClipItemType::Image, &content, &preview);
+    }
+    emit_history_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -183,19 +264,33 @@ pub fn save_png(png_base64: String, filename: Option<String>) -> Result<String, 
     let folder = pictures.join("ClipnPaste");
     std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
     let name = filename.unwrap_or_else(|| {
-        format!("snip_{}.png", chrono::Utc::now().format("%Y%m%d_%H%M%S"))
+        format!(
+            "snip_{}.png",
+            chrono::Utc::now().format("%Y%m%d_%H%M%S")
+        )
     });
     let path = folder.join(name);
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
 
-fn finalize_snip(app: &AppHandle, state: &State<'_, AppState>, result: &CaptureResult) -> Result<(), String> {
-    let content = format!("data:image/png;base64,{}", result.png_base64);
+fn finalize_snip(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    result: &CaptureResult,
+) -> Result<(), String> {
+    let png_bytes = STANDARD
+        .decode(&result.png_base64)
+        .map_err(|e| e.to_string())?;
+    let (content, preview) = image_content_and_preview(&png_bytes)?;
     write_item_to_clipboard(ClipItemType::Image, &content)?;
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let _ = db.insert_item(ClipItemType::Image, &content, &content);
-    app.emit("snip-captured", result).map_err(|e| e.to_string())?;
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let _ = db.insert_item(ClipItemType::Image, &content, &preview);
+    }
+    emit_history_changed(app);
+    app.emit("snip-captured", result)
+        .map_err(|e| e.to_string())?;
     windows::show_snip_toast(app)?;
     Ok(())
 }

@@ -3,11 +3,11 @@ use std::os::unix::net::UnixStream;
 
 fn main() {
     let cmd = std::env::args().nth(1).unwrap_or_else(|| {
-        eprintln!("usage: clipnpaste-cli <clipboard|emoji|snip>");
+        eprintln!("usage: clipnpaste-cli <clipboard|emoji|snip|settings>");
         std::process::exit(1);
     });
 
-    if cmd != "clipboard" && cmd != "emoji" && cmd != "snip" {
+    if cmd != "clipboard" && cmd != "emoji" && cmd != "snip" && cmd != "settings" {
         eprintln!("unknown command: {cmd}");
         std::process::exit(1);
     }

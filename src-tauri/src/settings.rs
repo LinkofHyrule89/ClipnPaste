@@ -29,27 +29,38 @@ impl Default for AppSettings {
 }
 
 pub fn settings_path() -> PathBuf {
-    dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("clipnpaste")
-        .join("settings.json")
+    settings_path_in(
+        dirs::data_local_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("clipnpaste"),
+    )
+}
+
+pub fn settings_path_in(data_dir: PathBuf) -> PathBuf {
+    data_dir.join("settings.json")
 }
 
 pub fn load() -> AppSettings {
-    let path = settings_path();
-    let Ok(raw) = fs::read_to_string(&path) else {
+    load_from(&settings_path())
+}
+
+pub fn load_from(path: &std::path::Path) -> AppSettings {
+    let Ok(raw) = fs::read_to_string(path) else {
         return AppSettings::default();
     };
     serde_json::from_str(&raw).unwrap_or_default()
 }
 
 pub fn save(settings: &AppSettings) -> Result<(), String> {
-    let path = settings_path();
+    save_to(&settings_path(), settings)
+}
+
+pub fn save_to(path: &std::path::Path, settings: &AppSettings) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
-    fs::write(&path, json).map_err(|e| e.to_string())
+    fs::write(path, json).map_err(|e| e.to_string())
 }
 
 pub fn emoji_enabled(settings: &Arc<Mutex<AppSettings>>) -> bool {
@@ -128,4 +139,40 @@ fn spawn_settings(command: &str, args: &[&str]) -> Result<(), String> {
 
 pub fn init_settings() -> Arc<Mutex<AppSettings>> {
     Arc::new(Mutex::new(load()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_file_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = settings_path_in(dir.path().to_path_buf());
+        let settings = load_from(&path);
+        assert!(settings.emoji_tab_enabled);
+        assert!(settings.gif_tab_enabled);
+    }
+
+    #[test]
+    fn save_load_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = settings_path_in(dir.path().to_path_buf());
+        let original = AppSettings {
+            emoji_tab_enabled: false,
+            gif_tab_enabled: true,
+        };
+        save_to(&path, &original).unwrap();
+        let loaded = load_from(&path);
+        assert!(!loaded.emoji_tab_enabled);
+        assert!(loaded.gif_tab_enabled);
+    }
+
+    #[test]
+    fn serde_defaults_partial_json() {
+        let partial = r#"{"emojiTabEnabled":false}"#;
+        let settings: AppSettings = serde_json::from_str(partial).unwrap();
+        assert!(!settings.emoji_tab_enabled);
+        assert!(settings.gif_tab_enabled);
+    }
 }

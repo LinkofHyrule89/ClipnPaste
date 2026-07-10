@@ -36,6 +36,8 @@ pub fn show_clipboard_panel(app: &AppHandle, tab: ClipboardTab) -> Result<(), St
         window
             .emit("set-clipboard-tab", tab)
             .map_err(|e| e.to_string())?;
+        // Ensure history reloads even if the webview stayed mounted while hidden.
+        crate::clipboard::emit_history_changed(app);
         position_bottom_right(&window, CLIPBOARD_WIDTH, CLIPBOARD_HEIGHT)?;
         window
             .set_always_on_top(true)

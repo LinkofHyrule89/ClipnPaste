@@ -1,14 +1,15 @@
 {
   "name": "clipnpaste",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "npm run build:emoji && tsc && vite build",
     "build:emoji": "node scripts/build-emoji-index.mjs",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

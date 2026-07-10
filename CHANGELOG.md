@@ -2,6 +2,48 @@
 
 All notable changes to ClipnPaste are documented in this file.
 
+## [0.2.4] - 2026-07-10
+
+### Added
+
+- Edit text clipboard items from history (✎ next to delete/pin): load full text, Save/Cancel, updated preview returns to the list
+- `clipnpaste-cli settings` opens the settings window
+- README screenshots and demo seed/capture scripts under `scripts/` and `docs/screenshots/`
+
+### Note
+
+Also includes 0.2.2–0.2.3 work shipped in this release train: live history sync, image-first capture, promote-on-select for Ctrl+V, unit tests, and documentation.
+
+## [0.2.3] - 2026-07-10
+
+### Added
+
+- Rust unit tests for history DB, previews, types, and settings (`npm test` / `cargo test`)
+
+### Fixed
+
+- Selecting an item from Super+V history now **promotes** it to the top and sets the system clipboard, so **Ctrl+V** pastes that item again (Windows 11-style)
+- Snip editor **Copy** updates both the system clipboard and clipboard history
+
+### Changed
+
+- Documented Super+V vs Ctrl+V: ClipnPaste never intercepts Ctrl+V; history selection only updates the OS clipboard first
+
+## [0.2.2] - 2026-07-10
+
+### Fixed
+
+- Clipboard history now updates live while the panel is open (`history-changed` events)
+- Super+V always reloads history when reusing the existing panel window
+- Image copies are captured even when the clipboard also has text (image preferred)
+- Re-copying the same content bumps it to the top instead of silently dropping it
+- App clipboard writes (paste/snip) coordinate with the monitor hash gate to avoid thrashing
+- History list no longer loads full item content blobs (summaries + image thumbnails)
+
+### Changed
+
+- Image history previews use downscaled thumbnails (full image still used for paste)
+
 ## [0.2.1] - 2026-06-30
 
 ### Added
@@ -65,6 +107,9 @@ First public release for Linux Mint / Cinnamon (X11).
 - Normal `s` key typing no longer blocked while the app is running
 - Cinnamon Settings shows ClipnPaste under Custom Shortcuts
 
+[0.2.4]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.4
+[0.2.3]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.3
+[0.2.2]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.2
 [0.2.1]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.1
 [0.2.0]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.0
 [0.1.0]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.1.0

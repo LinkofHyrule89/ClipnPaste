@@ -93,6 +93,9 @@ fn dispatch(app: &AppHandle, cmd: &str) {
         "snip" => {
             let _ = windows::show_snip_toolbar(&app_handle);
         }
+        "settings" => {
+            let _ = windows::show_settings_window(&app_handle);
+        }
         _ => {}
     });
 }

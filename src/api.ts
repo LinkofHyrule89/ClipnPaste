@@ -7,6 +7,10 @@ export const pinItem = (id: string) => invoke<void>("pin_item", { id });
 export const unpinItem = (id: string) => invoke<void>("unpin_item", { id });
 export const deleteItem = (id: string) => invoke<void>("delete_item", { id });
 export const clearUnpinned = () => invoke<void>("clear_unpinned");
+export const getItemContent = (id: string) =>
+  invoke<string>("get_item_content", { id });
+export const updateItemText = (id: string, content: string) =>
+  invoke<void>("update_item_text", { id, content });
 export const copyItemToClipboard = (id: string) =>
   invoke<void>("copy_item_to_clipboard", { id });
 export const pasteItemToTarget = (id: string) =>
