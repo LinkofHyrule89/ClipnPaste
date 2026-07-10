@@ -2,6 +2,12 @@
 
 All notable changes to ClipnPaste are documented in this file.
 
+## [0.2.6] - 2026-07-10
+
+### Fixed
+
+- Mint / GNOME application menu icon: install full Freedesktop hicolor sizes (16–512) and a proper desktop entry (`Icon=clipnpaste`, Utility categories) so the menu no longer falls back to a generic icon
+
 ## [0.2.5] - 2026-07-10
 
 ### Fixed
@@ -121,6 +127,7 @@ First public release for Linux Mint / Cinnamon (X11).
 - Normal `s` key typing no longer blocked while the app is running
 - Cinnamon Settings shows ClipnPaste under Custom Shortcuts
 
+[0.2.6]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.6
 [0.2.5]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.5
 [0.2.4]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.4
 [0.2.3]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.3

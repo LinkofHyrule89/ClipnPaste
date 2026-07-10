@@ -1,6 +1,6 @@
 [package]
 name = "clipnpaste"
-version = "0.2.5"
+version = "0.2.6"
 description = "Windows 11-style clipboard history and snipping tool for Linux"
 authors = ["Matt"]
 edition = "2021"
@@ -60,5 +60,14 @@ priority = "optional"
 assets = [
     ["target/release/clipnpaste", "usr/bin/", "755"],
     ["../assets/clipnpaste.desktop", "usr/share/applications/", "644"],
-    ["../src-tauri/icons/128x128.png", "usr/share/icons/hicolor/128x128/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/16x16/apps/clipnpaste.png", "usr/share/icons/hicolor/16x16/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/22x22/apps/clipnpaste.png", "usr/share/icons/hicolor/22x22/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/24x24/apps/clipnpaste.png", "usr/share/icons/hicolor/24x24/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/32x32/apps/clipnpaste.png", "usr/share/icons/hicolor/32x32/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/48x48/apps/clipnpaste.png", "usr/share/icons/hicolor/48x48/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/64x64/apps/clipnpaste.png", "usr/share/icons/hicolor/64x64/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/96x96/apps/clipnpaste.png", "usr/share/icons/hicolor/96x96/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/128x128/apps/clipnpaste.png", "usr/share/icons/hicolor/128x128/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/256x256/apps/clipnpaste.png", "usr/share/icons/hicolor/256x256/apps/clipnpaste.png", "644"],
+    ["icons/hicolor/512x512/apps/clipnpaste.png", "usr/share/icons/hicolor/512x512/apps/clipnpaste.png", "644"],
 ]
