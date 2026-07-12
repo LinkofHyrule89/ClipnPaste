@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getSettings, openKeyboardShortcuts, setSettings } from "../api";
-import type { AppSettings } from "../types/settings";
+import type { AppSettings, EmojiStyle } from "../types/settings";
+import { DEFAULT_SETTINGS } from "../types/settings";
+
+const EMOJI_STYLES: { id: EmojiStyle; label: string; hint: string }[] = [
+  { id: "google", label: "Google", hint: "Noto Color Emoji" },
+  { id: "fluent", label: "Fluent", hint: "Microsoft Fluent UI" },
+  { id: "system", label: "System", hint: "Your OS emoji font" },
+];
 
 export function SettingsPanel() {
-  const [settings, setLocalSettings] = useState<AppSettings>({
-    emojiTabEnabled: true,
-    gifTabEnabled: true,
-  });
+  const [settings, setLocalSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [shortcutsError, setShortcutsError] = useState<string | null>(null);
 
@@ -116,6 +120,47 @@ export function SettingsPanel() {
                     className="h-4 w-4 accent-sky-400"
                   />
                 </label>
+              </section>
+
+              <section>
+                <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-white/50">
+                  Emoji style
+                </h2>
+                <div className="space-y-2">
+                  {EMOJI_STYLES.map((item) => {
+                    const active = (settings.emojiStyle ?? "google") === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => void updateSetting({ emojiStyle: item.id })}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-3 text-left transition ${
+                          active
+                            ? "bg-sky-500/25 ring-1 ring-sky-400/40"
+                            : "bg-white/5 hover:bg-white/10"
+                        }`}
+                      >
+                        <span>
+                          <span className="block text-sm text-white/90">{item.label}</span>
+                          <span className="block text-xs text-white/45">{item.hint}</span>
+                        </span>
+                        <span
+                          className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                            active ? "border-sky-300 bg-sky-400" : "border-white/30"
+                          }`}
+                          aria-hidden
+                        >
+                          {active && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-neutral-950" />
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-white/45">
+                  Offline Google and Fluent art ship with the app. System uses your desktop emoji font.
+                </p>
               </section>
 
               <section>

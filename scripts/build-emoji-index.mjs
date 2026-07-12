@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Builds public/assets/emoji-index.json and copies Fluent UI Emoji flat PNGs.
- * Requires: git, network on first run (clones microsoft/fluentui-emoji).
+ * Builds public/assets/emoji-index.json and copies Google Noto + Fluent UI
+ * emoji assets into public/assets/emoji/{google,fluent}/.
+ *
+ * Requires: git, network on first run (clones noto-emoji + fluentui-emoji).
  */
 import fs from "fs";
 import path from "path";
@@ -12,7 +14,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 const CACHE = path.join(__dirname, ".cache");
 const FLUENT_REPO = path.join(CACHE, "fluentui-emoji");
+const NOTO_REPO = path.join(CACHE, "noto-emoji");
 const OUT_DIR = path.join(ROOT, "public", "assets", "emoji");
+const GOOGLE_OUT = path.join(OUT_DIR, "google");
+const FLUENT_OUT = path.join(OUT_DIR, "fluent");
 const INDEX_PATH = path.join(ROOT, "public", "assets", "emoji-index.json");
 
 const EMOJI_TEST_URL =
@@ -20,7 +25,8 @@ const EMOJI_TEST_URL =
 const CLDR_URL =
   "https://raw.githubusercontent.com/unicode-org/cldr-json/main/cldr-json/cldr-annotations-full/annotations/en/annotations.json";
 
-const MAX_EMOJI = 900;
+/** No practical cap — ship the full fully-qualified Unicode set with assets. */
+const MAX_EMOJI = Number.MAX_SAFE_INTEGER;
 
 const GROUP_LABELS = {
   "Smileys & Emotion": "Smileys",
@@ -28,11 +34,11 @@ const GROUP_LABELS = {
   "Animals & Nature": "Nature",
   "Food & Drink": "Food",
   "Travel & Places": "Travel",
-  "Activities": "Activities",
-  "Objects": "Objects",
-  "Symbols": "Symbols",
-  "Flags": "Flags",
-  "Component": "Component",
+  Activities: "Activities",
+  Objects: "Objects",
+  Symbols: "Symbols",
+  Flags: "Flags",
+  Component: "Component",
 };
 
 function ensureDir(dir) {
@@ -45,13 +51,27 @@ function download(url, dest) {
   execSync(`curl -fsSL "${url}" -o "${dest}"`, { stdio: "inherit" });
 }
 
-function ensureFluentRepo() {
-  if (fs.existsSync(path.join(FLUENT_REPO, "assets"))) return;
+function ensureRepo(dir, url, label) {
+  if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) return;
   ensureDir(CACHE);
-  console.log("Cloning fluentui-emoji (one-time)…");
-  execSync(
-    `git clone --depth 1 https://github.com/microsoft/fluentui-emoji.git "${FLUENT_REPO}"`,
-    { stdio: "inherit" },
+  if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+  console.log(`Cloning ${label} (one-time)…`);
+  execSync(`git clone --depth 1 ${url} "${dir}"`, { stdio: "inherit" });
+}
+
+function ensureFluentRepo() {
+  ensureRepo(
+    FLUENT_REPO,
+    "https://github.com/microsoft/fluentui-emoji.git",
+    "fluentui-emoji",
+  );
+}
+
+function ensureNotoRepo() {
+  ensureRepo(
+    NOTO_REPO,
+    "https://github.com/googlefonts/noto-emoji.git",
+    "noto-emoji",
   );
 }
 
@@ -70,10 +90,15 @@ function codepointsToChar(cps) {
     .join("");
 }
 
+/** Stable id for filenames: lowercase hex codepoints joined by '-' */
 function charToHexId(char) {
   return [...char]
     .map((c) => c.codePointAt(0).toString(16))
     .join("-");
+}
+
+function cpsFromChar(char) {
+  return [...char].map((c) => c.codePointAt(0).toString(16));
 }
 
 function parseEmojiTest(text) {
@@ -84,9 +109,7 @@ function parseEmojiTest(text) {
       currentGroup = line.replace("# group:", "").trim();
       continue;
     }
-    const match = line.match(
-      /^([0-9A-F ]+);\s*fully-qualified\s+#\s+(.+)$/,
-    );
+    const match = line.match(/^([0-9A-F ]+);\s*fully-qualified\s+#\s+(.+)$/);
     if (!match) continue;
     const [, cps, rest] = match;
     const parts = rest.split(/\s+/);
@@ -94,6 +117,10 @@ function parseEmojiTest(text) {
     if (!name) continue;
     entries.push({
       char: codepointsToChar(cps.trim()),
+      cps: cps
+        .trim()
+        .split(/\s+/)
+        .map((c) => c.toLowerCase()),
       group: currentGroup,
       name,
     });
@@ -121,7 +148,7 @@ function loadCldrKeywords(filePath) {
   return keywords;
 }
 
-function pickAssetFile(dir, folder) {
+function pickFluentAsset(dir) {
   const flatDir = path.join(dir, "Flat");
   if (fs.existsSync(flatDir)) {
     const flatSvg = fs
@@ -129,13 +156,11 @@ function pickAssetFile(dir, folder) {
       .find((f) => f.endsWith("_flat.svg"));
     if (flatSvg) return path.join(flatDir, flatSvg);
   }
-
   const threeDDir = path.join(dir, "3D");
   if (fs.existsSync(threeDDir)) {
     const png = fs.readdirSync(threeDDir).find((f) => f.endsWith("_3d.png"));
     if (png) return path.join(threeDDir, png);
   }
-
   return null;
 }
 
@@ -143,7 +168,7 @@ function buildFluentMap() {
   const assetsDir = path.join(FLUENT_REPO, "assets");
   const map = new Map();
   for (const folder of fs.readdirSync(assetsDir)) {
-    const asset = pickAssetFile(path.join(assetsDir, folder), folder);
+    const asset = pickFluentAsset(path.join(assetsDir, folder));
     if (!asset) continue;
     map.set(normalizeName(folder), asset);
   }
@@ -152,8 +177,54 @@ function buildFluentMap() {
 
 function findFluentAsset(fluentMap, names) {
   for (const name of names) {
-    const key = normalizeName(name);
-    const hit = fluentMap.get(key);
+    const hit = fluentMap.get(normalizeName(name));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/** Map lowercase "1f600_1f3fb" style keys → absolute path */
+function buildNotoMap() {
+  const svgDir = path.join(NOTO_REPO, "svg");
+  const pngDir = path.join(NOTO_REPO, "png", "128");
+  const map = new Map();
+
+  if (fs.existsSync(svgDir)) {
+    for (const file of fs.readdirSync(svgDir)) {
+      if (!file.startsWith("emoji_u") || !file.endsWith(".svg")) continue;
+      const key = file.slice("emoji_u".length, -".svg".length);
+      map.set(key, path.join(svgDir, file));
+    }
+  }
+  if (fs.existsSync(pngDir)) {
+    for (const file of fs.readdirSync(pngDir)) {
+      if (!file.startsWith("emoji_u") || !file.endsWith(".png")) continue;
+      const key = file.slice("emoji_u".length, -".png".length);
+      if (!map.has(key)) map.set(key, path.join(pngDir, file));
+    }
+  }
+  return map;
+}
+
+function notoKeyCandidates(cps) {
+  const full = cps.map((c) => c.toLowerCase());
+  const noFe0f = full.filter((c) => c !== "fe0f");
+  const keys = [];
+  const push = (arr) => {
+    if (arr.length) keys.push(arr.join("_"));
+  };
+  push(full);
+  push(noFe0f);
+  // Some Noto assets drop VS16 and keep ZWJ sequence order as-is
+  if (full.length !== noFe0f.length) {
+    push(noFe0f.filter((c) => c !== "200d").length ? noFe0f : full);
+  }
+  return [...new Set(keys)];
+}
+
+function findNotoAsset(notoMap, cps) {
+  for (const key of notoKeyCandidates(cps)) {
+    const hit = notoMap.get(key);
     if (hit) return hit;
   }
   return null;
@@ -161,6 +232,7 @@ function findFluentAsset(fluentMap, names) {
 
 function main() {
   ensureFluentRepo();
+  ensureNotoRepo();
 
   const cacheDir = path.join(CACHE, "data");
   ensureDir(cacheDir);
@@ -172,14 +244,18 @@ function main() {
   const emojiTest = parseEmojiTest(fs.readFileSync(emojiTestPath, "utf8"));
   const cldrKeywords = loadCldrKeywords(cldrPath);
   const fluentMap = buildFluentMap();
+  const notoMap = buildNotoMap();
 
   if (fs.existsSync(OUT_DIR)) {
     fs.rmSync(OUT_DIR, { recursive: true });
   }
-  ensureDir(OUT_DIR);
+  ensureDir(GOOGLE_OUT);
+  ensureDir(FLUENT_OUT);
 
   const categories = new Set();
   const emoji = [];
+  let googleCount = 0;
+  let fluentCount = 0;
 
   for (const entry of emojiTest) {
     if (emoji.length >= MAX_EMOJI) break;
@@ -187,22 +263,28 @@ function main() {
 
     const cldr = cldrKeywords.get(entry.char) ?? [];
     const searchNames = [entry.name, ...cldr];
-    const srcAsset = findFluentAsset(fluentMap, searchNames);
-    if (!srcAsset) continue;
-
     const id = charToHexId(entry.char);
-    const ext = path.extname(srcAsset);
-    const destName = `${id}${ext}`;
-    fs.copyFileSync(srcAsset, path.join(OUT_DIR, destName));
+    const cps = entry.cps?.length ? entry.cps : cpsFromChar(entry.char);
+
+    const notoSrc = findNotoAsset(notoMap, cps);
+    const fluentSrc = findFluentAsset(fluentMap, searchNames);
+    if (!notoSrc && !fluentSrc) continue;
+
+    if (notoSrc) {
+      const ext = path.extname(notoSrc);
+      fs.copyFileSync(notoSrc, path.join(GOOGLE_OUT, `${id}${ext}`));
+      googleCount++;
+    }
+    if (fluentSrc) {
+      const ext = path.extname(fluentSrc);
+      fs.copyFileSync(fluentSrc, path.join(FLUENT_OUT, `${id}${ext}`));
+      fluentCount++;
+    }
 
     const category = GROUP_LABELS[entry.group] ?? entry.group;
     categories.add(category);
 
-    const keywords = [
-      entry.name,
-      ...cldr,
-      category.toLowerCase(),
-    ]
+    const keywords = [entry.name, ...cldr, category.toLowerCase()]
       .join(" ")
       .toLowerCase()
       .split(/\s+/)
@@ -213,21 +295,27 @@ function main() {
       name: entry.name,
       category,
       keywords: [...new Set(keywords)],
-      image: `/assets/emoji/${destName}`,
+      id,
+      packs: {
+        google: Boolean(notoSrc),
+        fluent: Boolean(fluentSrc),
+      },
     });
   }
 
   const index = {
-    version: 1,
+    version: 2,
     categories: [...categories],
+    packs: ["google", "fluent"],
     emoji,
   };
 
   ensureDir(path.dirname(INDEX_PATH));
   fs.writeFileSync(INDEX_PATH, JSON.stringify(index));
   console.log(
-    `Wrote ${emoji.length} emoji to ${OUT_DIR} and ${INDEX_PATH}`,
+    `Wrote ${emoji.length} emoji (google files: ${googleCount}, fluent files: ${fluentCount}) to ${OUT_DIR}`,
   );
+  console.log(`Index: ${INDEX_PATH}`);
 }
 
 main();

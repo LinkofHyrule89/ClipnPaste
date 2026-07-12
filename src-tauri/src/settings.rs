@@ -13,10 +13,17 @@ pub struct AppSettings {
     pub emoji_tab_enabled: bool,
     #[serde(default = "default_true")]
     pub gif_tab_enabled: bool,
+    /// Offline emoji art: "google" | "fluent" | "system"
+    #[serde(default = "default_emoji_style")]
+    pub emoji_style: String,
 }
 
 fn default_true() -> bool {
     true
+}
+
+fn default_emoji_style() -> String {
+    "google".to_string()
 }
 
 impl Default for AppSettings {
@@ -24,6 +31,7 @@ impl Default for AppSettings {
         Self {
             emoji_tab_enabled: true,
             gif_tab_enabled: true,
+            emoji_style: default_emoji_style(),
         }
     }
 }
@@ -152,6 +160,7 @@ mod tests {
         let settings = load_from(&path);
         assert!(settings.emoji_tab_enabled);
         assert!(settings.gif_tab_enabled);
+        assert_eq!(settings.emoji_style, "google");
     }
 
     #[test]
@@ -161,11 +170,13 @@ mod tests {
         let original = AppSettings {
             emoji_tab_enabled: false,
             gif_tab_enabled: true,
+            emoji_style: "fluent".to_string(),
         };
         save_to(&path, &original).unwrap();
         let loaded = load_from(&path);
         assert!(!loaded.emoji_tab_enabled);
         assert!(loaded.gif_tab_enabled);
+        assert_eq!(loaded.emoji_style, "fluent");
     }
 
     #[test]
@@ -174,5 +185,6 @@ mod tests {
         let settings: AppSettings = serde_json::from_str(partial).unwrap();
         assert!(!settings.emoji_tab_enabled);
         assert!(settings.gif_tab_enabled);
+        assert_eq!(settings.emoji_style, "google");
     }
 }

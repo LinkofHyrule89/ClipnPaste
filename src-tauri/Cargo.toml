@@ -1,6 +1,6 @@
 [package]
 name = "clipnpaste"
-version = "0.2.7"
+version = "0.2.8"
 description = "Windows 11-style clipboard history and snipping tool for Linux"
 authors = ["Matt"]
 edition = "2021"

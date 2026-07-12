@@ -2,6 +2,26 @@
 
 All notable changes to ClipnPaste are documented in this file.
 
+## [0.2.8] - 2026-07-12
+
+### Added
+
+- **Emoji style** setting: Google Noto Color Emoji (default), Microsoft Fluent UI, or system font
+- Offline assets for both Google and Fluent packs (`public/assets/emoji/{google,fluent}/`)
+- Full Unicode emoji coverage in the picker (~3.5k fully-qualified glyphs; all categories)
+- **Skin-tone grouping**: base emoji in the grid; long-press or right-click opens a variant sheet (remembers last choice)
+- Unit tests for skin-tone grouping and multi-codepoint paste payloads (`npm run test:unit`)
+
+### Fixed
+
+- Clicking skin-tone-capable emoji now pastes reliably (pointer-up paste path)
+- Emoji category strip spacing so the horizontal scrollbar is harder to hit by accident
+
+### Changed
+
+- Emoji index v2 uses shared metadata + pack folders instead of Fluent-only flat SVGs
+- Removed the 900-emoji cap so Nature, Food, Travel, Objects, Symbols, Flags, etc. are included
+
 ## [0.2.7] - 2026-07-12
 
 ### Added

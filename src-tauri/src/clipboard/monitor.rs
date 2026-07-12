@@ -362,4 +362,27 @@ mod tests {
         assert!(preview.starts_with("data:image/png;base64,"));
         assert!(content.len() >= preview.len() || !preview.is_empty());
     }
+
+    /// Skin-tone emoji are multiple Unicode scalars; clipboard write must keep them all.
+    /// (What the target app *renders* may still look yellow if it ignores modifiers.)
+    #[test]
+    fn dark_skin_tone_emoji_utf8_payload_is_not_yellow_only() {
+        let yellow = "\u{1F44D}"; // 👍 default / "yellow"
+        let dark = "\u{1F44D}\u{1F3FF}"; // 👍🏿
+        assert_ne!(yellow, dark);
+        assert_eq!(yellow.chars().count(), 1);
+        assert_eq!(dark.chars().count(), 2);
+
+        let yellow_cps: Vec<u32> = yellow.chars().map(|c| c as u32).collect();
+        let dark_cps: Vec<u32> = dark.chars().map(|c| c as u32).collect();
+        assert_eq!(yellow_cps, vec![0x1F_44D]);
+        assert_eq!(dark_cps, vec![0x1F_44D, 0x1F_3FF]);
+
+        // Same bytes write_text() would put on the clipboard.
+        let bytes = dark.as_bytes();
+        assert!(bytes.len() > yellow.as_bytes().len());
+        let roundtrip = std::str::from_utf8(bytes).unwrap();
+        assert_eq!(roundtrip, dark);
+        assert_ne!(roundtrip, yellow);
+    }
 }

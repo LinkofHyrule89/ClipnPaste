@@ -2,7 +2,7 @@
 
 **Windows 11-style clipboard history and snipping tool** for Linux Mint and other Debian-based desktops (X11 / Cinnamon).
 
-**Current version: [0.2.7](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.7)** · [Changelog](CHANGELOG.md)
+**Current version: [0.2.8](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.8)** · [Changelog](CHANGELOG.md)
 
 ## Features
 
@@ -11,7 +11,7 @@
 - **Edit text clips** — ✎ next to delete/pin; save updates the list and preview
 - **Pin**, delete, and clear unpinned items
 - **Image thumbnails** in history; full image used for paste
-- **Emoji picker** (`Super+;`) — offline search, categories, Fluent UI assets
+- **Emoji picker** (`Super+;`) — offline search and categories; **Google Noto**, **Microsoft Fluent**, or **system** art (choose in Settings)
 - **Settings** — show/hide Emoji and GIF tabs; open system keyboard shortcuts
 - **Snipping tool** (`Super+Shift+S`) — fullscreen, window, or region; toast + annotation editor
 - Local-only data (no network required at runtime)

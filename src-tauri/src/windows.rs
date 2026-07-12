@@ -13,7 +13,7 @@ const SETTINGS_LABEL: &str = "settings";
 const CLIPBOARD_WIDTH: u32 = 420;
 const CLIPBOARD_HEIGHT: u32 = 560;
 const SETTINGS_WIDTH: u32 = 380;
-const SETTINGS_HEIGHT: u32 = 320;
+const SETTINGS_HEIGHT: u32 = 420;
 
 #[derive(Clone, Copy, Serialize)]
 #[serde(rename_all = "lowercase")]

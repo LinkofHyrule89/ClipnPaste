@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getSettings, showSettings } from "../api";
 import type { AppSettings } from "../types/settings";
+import { DEFAULT_SETTINGS } from "../types/settings";
 import { EmojiTab } from "./EmojiTab";
 import { GifTab } from "./GifTab";
 import { HistoryTab } from "./HistoryTab";
@@ -29,10 +30,7 @@ function isTabVisible(tab: ClipboardPanelTab, settings: AppSettings) {
 
 export function ClipboardPanel() {
   const [tab, setTab] = useState<ClipboardPanelTab>(tabFromQuery);
-  const [settings, setSettings] = useState<AppSettings>({
-    emojiTabEnabled: true,
-    gifTabEnabled: true,
-  });
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const focusReady = useRef(false);
 
   const visibleTabs = useMemo(
@@ -175,7 +173,9 @@ export function ClipboardPanel() {
 
         <div className="flex min-h-0 flex-1 flex-col">
           {tab === "history" && <HistoryTab />}
-          {tab === "emoji" && settings.emojiTabEnabled && <EmojiTab />}
+          {tab === "emoji" && settings.emojiTabEnabled && (
+            <EmojiTab emojiStyle={settings.emojiStyle ?? "google"} />
+          )}
           {tab === "gif" && settings.gifTabEnabled && <GifTab />}
         </div>
       </div>
