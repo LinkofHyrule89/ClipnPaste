@@ -2,6 +2,12 @@
 
 All notable changes to ClipnPaste are documented in this file.
 
+## [0.2.9] - 2026-07-12
+
+### Fixed
+
+- Emoji and text paste use **clipboard + Ctrl+V** instead of `xdotool type`, so multi-codepoint sequences (skin tones, ZWJ emoji) paste as a single glyph instead of only the base character
+
 ## [0.2.8] - 2026-07-12
 
 ### Added

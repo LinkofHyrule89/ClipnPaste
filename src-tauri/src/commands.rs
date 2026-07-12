@@ -136,12 +136,14 @@ pub fn paste_text_to_target(
     state: State<'_, AppState>,
     text: String,
 ) -> Result<(), String> {
+    // Clipboard + Ctrl+V so multi-codepoint emoji (skin tones, ZWJ) stay intact.
+    // xdotool "type" often mishandles those sequences as separate keystrokes.
     write_text(&text)?;
     windows::hide_clipboard_panel(&app);
     focus_target::paste_after_hide(
         &state.focus_target,
-        focus_target::PasteMode::TypeText,
-        Some(&text),
+        focus_target::PasteMode::ClipboardPaste,
+        None,
     );
     Ok(())
 }
@@ -171,22 +173,13 @@ pub fn paste_item_to_target(
 
     windows::hide_clipboard_panel(&app);
 
-    match item.item_type {
-        ClipItemType::Text => {
-            focus_target::paste_after_hide(
-                &state.focus_target,
-                focus_target::PasteMode::TypeText,
-                Some(&item.content),
-            );
-        }
-        ClipItemType::Image => {
-            focus_target::paste_after_hide(
-                &state.focus_target,
-                focus_target::PasteMode::ClipboardPaste,
-                None,
-            );
-        }
-    }
+    // Always Ctrl+V after writing clipboard — works for images and for
+    // multi-scalar text (emoji skin tones) where keystroke "type" is unreliable.
+    focus_target::paste_after_hide(
+        &state.focus_target,
+        focus_target::PasteMode::ClipboardPaste,
+        None,
+    );
     Ok(())
 }
 
