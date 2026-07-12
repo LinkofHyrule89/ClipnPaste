@@ -39,7 +39,27 @@
 
 On Cinnamon, Super shortcuts are registered under **System Settings → Keyboard → Shortcuts → Custom Shortcuts** so Mint Menu can keep Super.
 
-## Install from GitHub release (recommended)
+## Install with apt (GitHub Pages repo)
+
+Free community repo (not official Debian/Mint). **amd64** only. The package name is `clipn-paste`.
+
+```bash
+curl -fsSL https://linkofhyrule89.github.io/ClipnPaste/install.sh | sudo bash
+```
+
+Or manually:
+
+```bash
+echo 'deb [arch=amd64 trusted=yes] https://linkofhyrule89.github.io/ClipnPaste stable main' \
+  | sudo tee /etc/apt/sources.list.d/clipnpaste.list
+sudo apt update
+sudo apt install clipn-paste
+clipnpaste &
+```
+
+After new GitHub releases, `sudo apt update && sudo apt upgrade` picks up updates when the apt site is refreshed (automatic on each release via Actions).
+
+## Install from GitHub release (.deb)
 
 Download the latest `ClipnPaste_*_amd64.deb` from [Releases](https://github.com/LinkofHyrule89/ClipnPaste/releases):
 

@@ -1,0 +1,49 @@
+# Rebuild and publish the static apt repo (GitHub Pages) when a release is published.
+name: apt-repo
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: apt-repo
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev gzip
+
+      - name: Collect debs from releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/debs
+          tags=$(gh release list --limit 50 --json tagName --jq '.[].tagName')
+          for tag in $tags; do
+            gh release download "$tag" --pattern "*.deb" --dir /tmp/debs --clobber || true
+          done
+          ls -la /tmp/debs
+          test "$(find /tmp/debs -name '*.deb' | wc -l)" -gt 0
+
+      - name: Build apt repo
+        run: ./scripts/build-apt-repo.sh /tmp/debs /tmp/apt-out
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: /tmp/apt-out
+          force_orphan: false
+          enable_jekyll: false
