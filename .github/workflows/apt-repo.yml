@@ -10,9 +10,10 @@ permissions:
   contents: write
   pages: write
 
+# Serialize apt publishes so local scripts + CI don't race on gh-pages.
 concurrency:
   group: apt-repo
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -45,5 +46,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: /tmp/apt-out
-          force_orphan: false
+          # Full tree is rebuilt every run; orphan avoids non-fast-forward races
+          # when a local publish-apt-repo.sh runs at the same time as CI.
+          force_orphan: true
           enable_jekyll: false
