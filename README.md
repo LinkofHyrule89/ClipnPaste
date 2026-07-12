@@ -4,6 +4,8 @@
 
 **Current version: [0.2.7](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.7)** · [Changelog](CHANGELOG.md)
 
+**Discord / social link previews:** use the custom image at [`docs/social-preview.png`](docs/social-preview.png). Upload it once under **Repo Settings → Social preview** so GitHub (and Discord) show screenshots instead of a generic card. Regenerate with `python3 scripts/generate-social-preview.py`. Discord caches previews — try `?v=2` on the URL if an old embed sticks.
+
 ## Screenshots
 
 | History (edit / pin / delete) | Emoji picker |
