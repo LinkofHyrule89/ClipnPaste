@@ -14,11 +14,14 @@ use crate::windows;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
+use x11rb::wrapper::ConnectionExt as _;
 
 pub struct AppState {
     pub db: Arc<Mutex<Database>>,
     pub settings: Arc<Mutex<AppSettings>>,
     pub focus_target: focus_target::FocusTargetStore,
+    /// Most recent snip (for toast → editor).
+    pub last_capture: Mutex<Option<CaptureResult>>,
 }
 
 #[tauri::command]
@@ -213,14 +216,29 @@ pub fn list_capture_windows() -> Result<Vec<crate::snip::WindowInfo>, String> {
     list_windows().map_err(|e| e.to_string())
 }
 
+/// Hide snip UI and wait for the compositor so GetImage does not include the
+/// selection chrome / dim overlay.
+fn prepare_for_screen_capture(app: &AppHandle) {
+    windows::hide_snip_overlay(app);
+    windows::hide_snip_toolbar(app);
+
+    // Flush X11 so unmap requests are processed before we sample the root.
+    if let Ok((conn, _)) = x11rb::rust_connection::RustConnection::connect(None) {
+        let _ = conn.sync();
+    }
+
+    // Cinnamon/Muffin needs a beat after unmap before the desktop is painted.
+    std::thread::sleep(std::time::Duration::from_millis(180));
+}
+
 #[tauri::command]
 pub fn snip_fullscreen(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<CaptureResult, String> {
+    prepare_for_screen_capture(&app);
     let result = capture_fullscreen().map_err(|e| e.to_string())?;
-    finalize_snip(&app, &state, &result)?;
-    Ok(result)
+    finalize_snip(&app, &state, result)
 }
 
 #[tauri::command]
@@ -229,9 +247,9 @@ pub fn snip_window(
     state: State<'_, AppState>,
     window_id: u32,
 ) -> Result<CaptureResult, String> {
+    prepare_for_screen_capture(&app);
     let result = capture_window(window_id).map_err(|e| e.to_string())?;
-    finalize_snip(&app, &state, &result)?;
-    Ok(result)
+    finalize_snip(&app, &state, result)
 }
 
 #[tauri::command]
@@ -243,9 +261,9 @@ pub fn snip_region(
     width: u32,
     height: u32,
 ) -> Result<CaptureResult, String> {
+    prepare_for_screen_capture(&app);
     let result = capture_region(x, y, width, height).map_err(|e| e.to_string())?;
-    finalize_snip(&app, &state, &result)?;
-    Ok(result)
+    finalize_snip(&app, &state, result)
 }
 
 #[tauri::command]
@@ -268,25 +286,117 @@ pub fn copy_png_to_clipboard(
 #[tauri::command]
 pub fn save_png(png_base64: String, filename: Option<String>) -> Result<String, String> {
     let bytes = STANDARD.decode(png_base64).map_err(|e| e.to_string())?;
-    let pictures = dirs::picture_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    let folder = pictures.join("ClipnPaste");
+    let name = filename.unwrap_or_else(default_screenshot_name);
+    write_png_to_screenshots(&bytes, &name)
+}
+
+/// Update clipboard + history and write/overwrite the screenshot file.
+#[tauri::command]
+pub fn save_edited_snip(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    png_base64: String,
+    path: Option<String>,
+) -> Result<CaptureResult, String> {
+    let bytes = STANDARD.decode(&png_base64).map_err(|e| e.to_string())?;
+    let (content, preview) = image_content_and_preview(&bytes)?;
+    write_item_to_clipboard(ClipItemType::Image, &content)?;
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let _ = db.insert_item(ClipItemType::Image, &content, &preview);
+    }
+    emit_history_changed(&app);
+
+    let saved_path = if let Some(ref p) = path {
+        let pb = std::path::PathBuf::from(p);
+        if let Some(parent) = pb.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        std::fs::write(&pb, &bytes).map_err(|e| e.to_string())?;
+        p.clone()
+    } else {
+        write_png_to_screenshots(&bytes, &default_screenshot_name())?
+    };
+
+    let (width, height) = image_dimensions_from_png(&bytes)?;
+    let result = CaptureResult {
+        png_base64,
+        width,
+        height,
+        saved_path: Some(saved_path),
+    };
+    if let Ok(mut last) = state.last_capture.lock() {
+        *last = Some(result.clone());
+    }
+    Ok(result)
+}
+
+/// Open the snip editor with optional capture payload (falls back to last snip).
+#[tauri::command]
+pub fn open_snip_editor(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    capture: Option<CaptureResult>,
+) -> Result<(), String> {
+    let payload = match capture {
+        Some(c) => {
+            if let Ok(mut last) = state.last_capture.lock() {
+                *last = Some(c.clone());
+            }
+            Some(c)
+        }
+        None => state
+            .last_capture
+            .lock()
+            .map_err(|e| e.to_string())?
+            .clone(),
+    };
+
+    windows::show_snip_editor(&app)?;
+
+    if let Some(payload) = payload {
+        let app2 = app.clone();
+        std::thread::spawn(move || {
+            // Give the webview time to mount listeners if it was just created.
+            std::thread::sleep(std::time::Duration::from_millis(120));
+            let _ = app2.emit("editor-image", payload);
+        });
+    }
+    Ok(())
+}
+
+/// `$XDG_PICTURES_DIR/Screenshots` (usually `~/Pictures/Screenshots`).
+fn screenshot_dir() -> Result<std::path::PathBuf, String> {
+    let pictures = dirs::picture_dir().or_else(|| dirs::home_dir().map(|h| h.join("Pictures")));
+    let pictures = pictures.ok_or_else(|| "Could not resolve Pictures directory".to_string())?;
+    Ok(pictures.join("Screenshots"))
+}
+
+fn default_screenshot_name() -> String {
+    format!(
+        "Screenshot_{}.png",
+        chrono::Local::now().format("%Y-%m-%d_%H-%M-%S")
+    )
+}
+
+fn write_png_to_screenshots(bytes: &[u8], filename: &str) -> Result<String, String> {
+    let folder = screenshot_dir()?;
     std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-    let name = filename.unwrap_or_else(|| {
-        format!(
-            "snip_{}.png",
-            chrono::Utc::now().format("%Y%m%d_%H%M%S")
-        )
-    });
-    let path = folder.join(name);
+    let path = folder.join(filename);
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
+}
+
+fn image_dimensions_from_png(bytes: &[u8]) -> Result<(u32, u32), String> {
+    let img = image::load_from_memory(bytes).map_err(|e| e.to_string())?;
+    Ok((img.width(), img.height()))
 }
 
 fn finalize_snip(
     app: &AppHandle,
     state: &State<'_, AppState>,
-    result: &CaptureResult,
-) -> Result<(), String> {
+    mut result: CaptureResult,
+) -> Result<CaptureResult, String> {
     let png_bytes = STANDARD
         .decode(&result.png_base64)
         .map_err(|e| e.to_string())?;
@@ -297,8 +407,22 @@ fn finalize_snip(
         let _ = db.insert_item(ClipItemType::Image, &content, &preview);
     }
     emit_history_changed(app);
-    app.emit("snip-captured", result)
+
+    // Auto-save under $XDG_PICTURES_DIR/Screenshots; never fail the snip if this fails.
+    match write_png_to_screenshots(&png_bytes, &default_screenshot_name()) {
+        Ok(path) => {
+            eprintln!("snip saved to {path}");
+            result.saved_path = Some(path);
+        }
+        Err(err) => eprintln!("snip auto-save failed: {err}"),
+    }
+
+    if let Ok(mut last) = state.last_capture.lock() {
+        *last = Some(result.clone());
+    }
+
+    app.emit("snip-captured", &result)
         .map_err(|e| e.to_string())?;
     windows::show_snip_toast(app)?;
-    Ok(())
+    Ok(result)
 }

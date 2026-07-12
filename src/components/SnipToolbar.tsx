@@ -27,21 +27,13 @@ export function SnipToolbar() {
       return;
     }
 
-    if (mode === "rect") {
+    if (mode === "rect" || mode === "window") {
       await hide();
       const overlay = await WebviewWindow.getByLabel("snip-overlay");
       if (overlay) {
-        await overlay.show();
-        await overlay.setFocus();
-      }
-      return;
-    }
-
-    if (mode === "window") {
-      await hide();
-      const overlay = await WebviewWindow.getByLabel("snip-overlay");
-      if (overlay) {
-        await overlay.emit("snip-mode", "window");
+        // Overlay webview stays mounted while hidden, so mode must be set
+        // every time (otherwise a prior window snip leaves list UI active).
+        await overlay.emit("snip-mode", mode);
         await overlay.show();
         await overlay.setFocus();
       }

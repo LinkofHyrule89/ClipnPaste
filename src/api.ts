@@ -30,6 +30,10 @@ export const copyPngToClipboard = (pngBase64: string) =>
   invoke<void>("copy_png_to_clipboard", { pngBase64 });
 export const savePng = (pngBase64: string, filename?: string) =>
   invoke<string>("save_png", { pngBase64, filename });
+export const saveEditedSnip = (pngBase64: string, path?: string | null) =>
+  invoke<CaptureResult>("save_edited_snip", { pngBase64, path: path ?? null });
+export const openSnipEditor = (capture?: CaptureResult | null) =>
+  invoke<void>("open_snip_editor", { capture: capture ?? null });
 export const getSettings = () => invoke<AppSettings>("get_settings");
 export const setSettings = (settings: AppSettings) =>
   invoke<void>("set_settings", { settings });

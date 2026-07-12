@@ -2,6 +2,26 @@
 
 All notable changes to ClipnPaste are documented in this file.
 
+## [0.2.7] - 2026-07-12
+
+### Added
+
+- **Snip & Sketch editor** opens from the post-capture toast (click to edit)
+- Editor tools: **pen**, **highlighter**, **blur** (region), **crop**, multi-color palette, and **undo**
+- Snips auto-save under **`$XDG_PICTURES_DIR/Screenshots`** (usually `~/Pictures/Screenshots`)
+- **Save** in the editor updates the system clipboard, clipboard history, and overwrites the saved screenshot file when known
+
+### Fixed
+
+- Rectangle snip region capture on HiDPI / fractional scaling (`Xft.dpi`): crop used xcap logical geometry against a physical image buffer
+- Selection chrome (blue box / dim overlay) no longer appears in region captures (hide overlay + XSync + settle before grab)
+- Toast **Click to edit** did nothing because the editor window was never created; editor is preloaded and opened via `open_snip_editor`
+- Snip mode stuck on window list after a prior window snip when choosing rectangle again
+
+### Changed
+
+- Editor **Save** / auto-save use Screenshots instead of `Pictures/ClipnPaste`
+
 ## [0.2.6] - 2026-07-10
 
 ### Fixed

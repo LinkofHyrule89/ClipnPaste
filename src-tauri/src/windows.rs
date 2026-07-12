@@ -208,14 +208,12 @@ fn ensure_snip_toast(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-pub fn show_snip_editor(app: &AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window(SNIP_EDITOR_LABEL) {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
+pub fn ensure_snip_editor(app: &AppHandle) -> Result<(), String> {
+    if app.get_webview_window(SNIP_EDITOR_LABEL).is_some() {
         return Ok(());
     }
 
-    WebviewWindowBuilder::new(
+    let window = WebviewWindowBuilder::new(
         app,
         SNIP_EDITOR_LABEL,
         WebviewUrl::App("index.html?window=snip-editor".into()),
@@ -224,10 +222,21 @@ pub fn show_snip_editor(app: &AppHandle) -> Result<(), String> {
     .inner_size(960.0, 720.0)
     .resizable(true)
     .decorations(true)
-    .visible(true)
+    .visible(false)
     .build()
     .map_err(|e| e.to_string())?;
 
+    center_on_screen(&window, 960, 720)?;
+    Ok(())
+}
+
+pub fn show_snip_editor(app: &AppHandle) -> Result<(), String> {
+    ensure_snip_editor(app)?;
+    if let Some(window) = app.get_webview_window(SNIP_EDITOR_LABEL) {
+        center_on_screen(&window, 960, 720)?;
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 

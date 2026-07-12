@@ -12,6 +12,8 @@ export interface CaptureResult {
   pngBase64: string;
   width: number;
   height: number;
+  /** Absolute path under Screenshots when auto-saved. */
+  savedPath?: string | null;
 }
 
 export interface WindowInfo {

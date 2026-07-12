@@ -36,6 +36,7 @@ pub fn run() {
                 db,
                 settings: settings::init_settings(),
                 focus_target: focus_target::new_store(),
+                last_capture: std::sync::Mutex::new(None),
             });
 
             setup_tray(app.handle())?;
@@ -66,6 +67,8 @@ pub fn run() {
             commands::snip_region,
             commands::copy_png_to_clipboard,
             commands::save_png,
+            commands::save_edited_snip,
+            commands::open_snip_editor,
             commands::get_settings,
             commands::set_settings,
             commands::open_keyboard_shortcuts,
@@ -122,6 +125,11 @@ fn preload_windows(app: &AppHandle) -> Result<(), String> {
     windows::hide_snip_overlay(app);
     let _ = windows::show_snip_toast(app);
     if let Some(window) = app.get_webview_window("snip-toast") {
+        let _ = window.hide();
+    }
+    // Create editor hidden so toast → edit does not race window creation.
+    let _ = windows::ensure_snip_editor(app);
+    if let Some(window) = app.get_webview_window("snip-editor") {
         let _ = window.hide();
     }
     Ok(())

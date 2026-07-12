@@ -9,12 +9,15 @@ pub enum CaptureError {
     Message(String),
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptureResult {
     pub png_base64: String,
     pub width: u32,
     pub height: u32,
+    /// Path written under Screenshots on auto-save (if any).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved_path: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -69,30 +72,87 @@ pub fn capture_window(window_id: u32) -> Result<CaptureResult, CaptureError> {
     encode_image(&image)
 }
 
+/// Capture a screen region.
+///
+/// `x`, `y`, `width`, and `height` are in **physical X11 root coordinates**
+/// (same space as Tauri `outerPosition` / CSS × device scale).
+///
+/// xcap exposes monitor geometry in *logical* pixels (÷ `scale_factor` from
+/// Xft.dpi) while `capture_image()` returns *physical* pixels. We convert
+/// bounds with `scale_factor` and crop against the real image size.
 pub fn capture_region(x: i32, y: i32, width: u32, height: u32) -> Result<CaptureResult, CaptureError> {
     if width == 0 || height == 0 {
         return Err(CaptureError::Message("Invalid region size".into()));
     }
 
-    let monitor = Monitor::from_point(x, y).map_err(|e| CaptureError::Message(e.to_string()))?;
+    let monitors = Monitor::all().map_err(|e| CaptureError::Message(e.to_string()))?;
+    if monitors.is_empty() {
+        return Err(CaptureError::Message("No monitor found".into()));
+    }
+
+    let monitor = find_monitor_for_physical_point(&monitors, x, y)
+        .cloned()
+        .or_else(|| monitors.iter().find(|m| m.is_primary()).cloned())
+        .or_else(|| monitors.into_iter().next())
+        .ok_or_else(|| CaptureError::Message("No monitor found".into()))?;
+
+    let scale = monitor.scale_factor().max(0.01);
+    let mx = (monitor.x() as f32 * scale).round() as i32;
+    let my = (monitor.y() as f32 * scale).round() as i32;
+    let mw = ((monitor.width() as f32 * scale).round() as i32).max(1);
+    let mh = ((monitor.height() as f32 * scale).round() as i32).max(1);
+
     let image = monitor
         .capture_image()
         .map_err(|e| CaptureError::Message(e.to_string()))?;
-    let mx = monitor.x();
-    let my = monitor.y();
-    let mw = monitor.width() as i32;
-    let mh = monitor.height() as i32;
+    let (iw, ih) = image.dimensions();
+    if iw == 0 || ih == 0 {
+        return Err(CaptureError::Message("Empty capture".into()));
+    }
 
-    if x < mx || y < my || x >= mx + mw || y >= my + mh {
+    // Map physical monitor coords → image pixel coords (handles any residual mismatch).
+    let sx = iw as f32 / mw as f32;
+    let sy = ih as f32 / mh as f32;
+
+    let rel_x = (x - mx) as f32;
+    let rel_y = (y - my) as f32;
+    let mut rx = (rel_x * sx).round() as i32;
+    let mut ry = (rel_y * sy).round() as i32;
+    let mut rw = (width as f32 * sx).round() as i32;
+    let mut rh = (height as f32 * sy).round() as i32;
+
+    // Clamp crop rect to image bounds.
+    if rx < 0 {
+        rw += rx;
+        rx = 0;
+    }
+    if ry < 0 {
+        rh += ry;
+        ry = 0;
+    }
+    if rx >= iw as i32 || ry >= ih as i32 || rw <= 0 || rh <= 0 {
+        return Err(CaptureError::Message("Region outside monitor".into()));
+    }
+    rw = rw.min(iw as i32 - rx);
+    rh = rh.min(ih as i32 - ry);
+    if rw <= 0 || rh <= 0 {
         return Err(CaptureError::Message("Region outside monitor".into()));
     }
 
-    let rx = (x - mx) as u32;
-    let ry = (y - my) as u32;
-    let crop_w = width.min(mw as u32 - rx);
-    let crop_h = height.min(mh as u32 - ry);
-    let cropped = image::imageops::crop_imm(&image, rx, ry, crop_w, crop_h).to_image();
+    let cropped =
+        image::imageops::crop_imm(&image, rx as u32, ry as u32, rw as u32, rh as u32).to_image();
     encode_image(&cropped)
+}
+
+fn find_monitor_for_physical_point(monitors: &[Monitor], x: i32, y: i32) -> Option<&Monitor> {
+    monitors.iter().find(|m| {
+        let scale = m.scale_factor().max(0.01);
+        let mx = (m.x() as f32 * scale).round() as i32;
+        let my = (m.y() as f32 * scale).round() as i32;
+        let mw = ((m.width() as f32 * scale).round() as i32).max(1);
+        let mh = ((m.height() as f32 * scale).round() as i32).max(1);
+        x >= mx && y >= my && x < mx + mw && y < my + mh
+    })
 }
 
 fn capture_monitor(monitor: &Monitor) -> Result<CaptureResult, CaptureError> {
@@ -119,5 +179,6 @@ fn encode_image(image: &image::RgbaImage) -> Result<CaptureResult, CaptureError>
         png_base64: STANDARD.encode(png_bytes),
         width,
         height,
+        saved_path: None,
     })
 }
