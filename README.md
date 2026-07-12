@@ -18,13 +18,12 @@
 
 ## Screenshots
 
-| History (edit / pin / delete) | Emoji picker |
-|-------------------------------|--------------|
-| ![Clipboard history](docs/screenshots/01-history.png) | ![Emoji tab](docs/screenshots/03-emoji.png) |
-
-| Settings | Snip toolbar |
-|----------|--------------|
-| ![Settings](docs/screenshots/04-settings.png) | ![Snip toolbar](docs/screenshots/05-snip-toolbar.png) |
+<p>
+<img src="docs/screenshots/01-history.png" alt="Clipboard history" width="180" />
+<img src="docs/screenshots/03-emoji.png" alt="Emoji picker" width="180" />
+<img src="docs/screenshots/04-settings.png" alt="Settings" width="180" />
+<img src="docs/screenshots/05-snip-toolbar.png" alt="Snip toolbar" width="180" />
+</p>
 
 ## Hotkeys
 

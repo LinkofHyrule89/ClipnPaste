@@ -112,10 +112,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ -f "$ROOT/docs/social-preview.png" ]]; then
   cp -f "$ROOT/docs/social-preview.png" "$OUT/social-preview.png"
 fi
-if [[ -f "$ROOT/docs/screenshots/01-history.png" ]]; then
+if [[ -d "$ROOT/docs/screenshots" ]]; then
   mkdir -p "$OUT/screenshots"
-  cp -f "$ROOT/docs/screenshots/01-history.png" "$OUT/screenshots/" 2>/dev/null || true
-  cp -f "$ROOT/docs/screenshots/03-emoji.png" "$OUT/screenshots/" 2>/dev/null || true
+  cp -f "$ROOT/docs/screenshots/"*.png "$OUT/screenshots/" 2>/dev/null || true
 fi
 
 cat > "$OUT/index.html" << 'HTML'
@@ -147,8 +146,8 @@ cat > "$OUT/index.html" << 'HTML'
     a { color: #38bdf8; }
     h1 { font-size: 1.75rem; margin-bottom: 0.35rem; }
     .tagline { color: #a3a3a3; margin-top: 0; }
-    .shots { display: flex; gap: 0.75rem; flex-wrap: wrap; margin: 1.25rem 0; }
-    .shots img { height: 160px; width: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+    .shots { display: flex; gap: 0.5rem; flex-wrap: nowrap; margin: 1.25rem 0; overflow-x: auto; }
+    .shots img { height: 120px; width: auto; max-width: 22%; object-fit: contain; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
     h2 { font-size: 1.1rem; margin-top: 1.75rem; }
   </style>
 </head>
@@ -164,8 +163,10 @@ cat > "$OUT/index.html" << 'HTML'
     <li>Local-only data (no network required at runtime)</li>
   </ul>
   <div class="shots">
-    <img src="screenshots/01-history.png" alt="Clipboard history" width="113" height="160" />
-    <img src="screenshots/03-emoji.png" alt="Emoji picker" width="113" height="160" />
+    <img src="screenshots/01-history.png" alt="Clipboard history" />
+    <img src="screenshots/03-emoji.png" alt="Emoji picker" />
+    <img src="screenshots/04-settings.png" alt="Settings" />
+    <img src="screenshots/05-snip-toolbar.png" alt="Snip toolbar" />
   </div>
   <p><a href="https://github.com/LinkofHyrule89/ClipnPaste">Source on GitHub</a> · package name <code>clipn-paste</code></p>
   <h2>Quick install</h2>
