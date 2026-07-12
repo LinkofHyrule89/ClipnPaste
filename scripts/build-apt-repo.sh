@@ -100,6 +100,10 @@ apt-get install -y clipn-paste
 echo
 echo "Installed. Start with: clipnpaste &"
 echo "Or log out/in for autostart."
+echo
+echo "Uninstall later:"
+echo "  sudo apt remove clipn-paste"
+echo "  sudo rm -f /etc/apt/sources.list.d/clipnpaste.list && sudo apt update"
 INSTALL
 chmod +x "$OUT/install.sh"
 
@@ -131,6 +135,14 @@ cat > "$OUT/index.html" << 'HTML'
 sudo apt update
 sudo apt install clipn-paste</pre>
   <p>Package name is <code>clipn-paste</code> (binary: <code>clipnpaste</code>).</p>
+  <h2>Uninstall</h2>
+  <pre>pkill -x clipnpaste 2>/dev/null || true
+sudo apt remove clipn-paste
+# optional: remove config/data leftovers from the package
+sudo apt purge clipn-paste
+# remove this apt source
+sudo rm -f /etc/apt/sources.list.d/clipnpaste.list
+sudo apt update</pre>
   <p><a href="https://github.com/LinkofHyrule89/ClipnPaste">Source &amp; releases</a></p>
 </body>
 </html>

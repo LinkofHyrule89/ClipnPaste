@@ -70,6 +70,25 @@ clipnpaste &
 
 Or log out and back in so autostart picks up the app.
 
+## Uninstall
+
+Stop the app if it is running, then remove the package:
+
+```bash
+pkill -x clipnpaste 2>/dev/null || true
+sudo apt remove clipn-paste
+```
+
+To also drop app data and the apt source (if you used the GitHub Pages repo):
+
+```bash
+sudo apt purge clipn-paste
+sudo rm -f /etc/apt/sources.list.d/clipnpaste.list
+sudo apt update
+```
+
+Optional: delete local history/settings (`~/.local/share/clipnpaste/`), a local build override (`~/.local/bin/clipnpaste`), and user autostart/desktop entries under `~/.local/share/applications/` and `~/.config/autostart/` if present.
+
 ## Requirements (build)
 
 ```bash
