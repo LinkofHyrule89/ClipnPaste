@@ -4,16 +4,6 @@
 
 **Current version: [0.2.7](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.7)** · [Changelog](CHANGELOG.md)
 
-## Screenshots
-
-| History (edit / pin / delete) | Emoji picker |
-|-------------------------------|--------------|
-| ![Clipboard history](docs/screenshots/01-history.png) | ![Emoji tab](docs/screenshots/03-emoji.png) |
-
-| Settings | Snip toolbar |
-|----------|--------------|
-| ![Settings](docs/screenshots/04-settings.png) | ![Snip toolbar](docs/screenshots/05-snip-toolbar.png) |
-
 ## Features
 
 - **Live clipboard history** — text and images appear in the Super+V list as you copy (including image-first capture when both formats exist)
@@ -25,6 +15,16 @@
 - **Settings** — show/hide Emoji and GIF tabs; open system keyboard shortcuts
 - **Snipping tool** (`Super+Shift+S`) — fullscreen, window, or region; toast + annotation editor
 - Local-only data (no network required at runtime)
+
+## Screenshots
+
+| History (edit / pin / delete) | Emoji picker |
+|-------------------------------|--------------|
+| ![Clipboard history](docs/screenshots/01-history.png) | ![Emoji tab](docs/screenshots/03-emoji.png) |
+
+| Settings | Snip toolbar |
+|----------|--------------|
+| ![Settings](docs/screenshots/04-settings.png) | ![Snip toolbar](docs/screenshots/05-snip-toolbar.png) |
 
 ## Hotkeys
 

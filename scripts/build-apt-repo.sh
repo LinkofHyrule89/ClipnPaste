@@ -155,6 +155,14 @@ cat > "$OUT/index.html" << 'HTML'
 <body>
   <h1>ClipnPaste</h1>
   <p class="tagline">Windows 11-style clipboard history and snipping for Linux Mint / Debian (amd64).</p>
+  <h2>Features</h2>
+  <ul>
+    <li><strong>Live clipboard history</strong> — text and images as you copy</li>
+    <li><strong>Windows 11-style paste</strong> — pick a clip for Super+V / Ctrl+V</li>
+    <li><strong>Edit, pin, delete</strong> history items; image thumbnails</li>
+    <li><strong>Emoji picker</strong> (offline) and <strong>snipping tool</strong> with annotation editor</li>
+    <li>Local-only data (no network required at runtime)</li>
+  </ul>
   <div class="shots">
     <img src="screenshots/01-history.png" alt="Clipboard history" width="113" height="160" />
     <img src="screenshots/03-emoji.png" alt="Emoji picker" width="113" height="160" />
