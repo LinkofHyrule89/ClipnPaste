@@ -7,6 +7,7 @@ import {
   deleteItem,
   getHistory,
   getItemContent,
+  openSnipEditorFromHistory,
   pinItem,
   unpinItem,
   updateItemText,
@@ -92,6 +93,15 @@ export function HistoryTab() {
 
   const startEdit = async (item: ClipItemSummary, event: React.MouseEvent) => {
     event.stopPropagation();
+    if (item.itemType === "image") {
+      try {
+        await openSnipEditorFromHistory(item.id);
+        await getCurrentWindow().hide();
+      } catch (err) {
+        console.error("Failed to open image in snip editor:", err);
+      }
+      return;
+    }
     if (item.itemType !== "text") return;
     setEditingId(item.id);
     setEditDraft("");
@@ -273,13 +283,13 @@ export function HistoryTab() {
               </div>
               {!isEditing && (
                 <div className="flex shrink-0 items-center gap-1 self-start">
-                  {item.itemType === "text" && (
+                  {(item.itemType === "text" || item.itemType === "image") && (
                     <button
                       type="button"
                       onClick={(event) => void startEdit(item, event)}
                       className="clipboard-action-btn text-white/45 hover:text-sky-200"
-                      title="Edit"
-                      aria-label="Edit item"
+                      title={item.itemType === "image" ? "Edit in snip editor" : "Edit"}
+                      aria-label={item.itemType === "image" ? "Edit image" : "Edit item"}
                     >
                       ✎
                     </button>

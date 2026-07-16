@@ -187,4 +187,21 @@ mod tests {
         assert!(settings.gif_tab_enabled);
         assert_eq!(settings.emoji_style, "google");
     }
+
+    #[test]
+    fn emoji_style_roundtrip_variants() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = settings_path_in(dir.path().to_path_buf());
+        for style in ["google", "fluent", "system"] {
+            let original = AppSettings {
+                emoji_tab_enabled: true,
+                gif_tab_enabled: false,
+                emoji_style: style.to_string(),
+            };
+            save_to(&path, &original).unwrap();
+            let loaded = load_from(&path);
+            assert_eq!(loaded.emoji_style, style);
+            assert!(!loaded.gif_tab_enabled);
+        }
+    }
 }

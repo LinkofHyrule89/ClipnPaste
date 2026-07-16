@@ -8,12 +8,12 @@ use crate::clipboard::{
 };
 use crate::db::Database;
 use crate::focus_target;
+use crate::paths::{decode_png_bounded, resolve_snip_save_path, sanitize_screenshot_filename};
 use crate::settings::{self, AppSettings};
 use crate::snip::{capture_fullscreen, capture_region, capture_window, list_windows, CaptureResult};
 use crate::windows;
-use base64::{engine::general_purpose::STANDARD, Engine as _};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use x11rb::wrapper::ConnectionExt as _;
 
 pub struct AppState {
@@ -265,7 +265,7 @@ pub fn copy_png_to_clipboard(
     state: State<'_, AppState>,
     png_base64: String,
 ) -> Result<(), String> {
-    let bytes = STANDARD.decode(png_base64).map_err(|e| e.to_string())?;
+    let bytes = decode_png_bounded(&png_base64)?;
     crate::clipboard::monitor::write_image_png(&bytes)?;
     let (content, preview) = image_content_and_preview(&bytes)?;
     {
@@ -278,12 +278,18 @@ pub fn copy_png_to_clipboard(
 
 #[tauri::command]
 pub fn save_png(png_base64: String, filename: Option<String>) -> Result<String, String> {
-    let bytes = STANDARD.decode(png_base64).map_err(|e| e.to_string())?;
-    let name = filename.unwrap_or_else(default_screenshot_name);
+    let bytes = decode_png_bounded(&png_base64)?;
+    let name = match filename {
+        Some(n) => sanitize_screenshot_filename(&n)?,
+        None => default_screenshot_name(),
+    };
     write_png_to_screenshots(&bytes, &name)
 }
 
 /// Update clipboard + history and write/overwrite the screenshot file.
+///
+/// Optional `path` may only target a file under the Screenshots directory
+/// (basename or absolute path under that folder). Arbitrary paths are rejected.
 #[tauri::command]
 pub fn save_edited_snip(
     app: AppHandle,
@@ -291,7 +297,7 @@ pub fn save_edited_snip(
     png_base64: String,
     path: Option<String>,
 ) -> Result<CaptureResult, String> {
-    let bytes = STANDARD.decode(&png_base64).map_err(|e| e.to_string())?;
+    let bytes = decode_png_bounded(&png_base64)?;
     let (content, preview) = image_content_and_preview(&bytes)?;
     write_item_to_clipboard(ClipItemType::Image, &content)?;
     {
@@ -300,16 +306,11 @@ pub fn save_edited_snip(
     }
     emit_history_changed(&app);
 
-    let saved_path = if let Some(ref p) = path {
-        let pb = std::path::PathBuf::from(p);
-        if let Some(parent) = pb.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
-        std::fs::write(&pb, &bytes).map_err(|e| e.to_string())?;
-        p.clone()
-    } else {
-        write_png_to_screenshots(&bytes, &default_screenshot_name())?
-    };
+    let folder = screenshot_dir()?;
+    std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let dest = resolve_snip_save_path(&folder, path.as_deref(), &default_screenshot_name())?;
+    std::fs::write(&dest, &bytes).map_err(|e| e.to_string())?;
+    let saved_path = dest.to_string_lossy().to_string();
 
     let (width, height) = image_dimensions_from_png(&bytes)?;
     let result = CaptureResult {
@@ -322,6 +323,26 @@ pub fn save_edited_snip(
         *last = Some(result.clone());
     }
     Ok(result)
+}
+
+#[tauri::command]
+pub fn get_last_snip_capture(
+    state: State<'_, AppState>,
+) -> Result<Option<CaptureResult>, String> {
+    state
+        .last_capture
+        .lock()
+        .map_err(|e| e.to_string())
+        .map(|g| g.clone())
+}
+
+fn emit_editor_image(app: &AppHandle, payload: &CaptureResult) {
+    // Prefer window-targeted emit (listener is in snip-editor webview).
+    if let Some(window) = app.get_webview_window("snip-editor") {
+        let _ = window.emit("editor-image", payload);
+    }
+    // Global emit as backup for any listener.
+    let _ = app.emit("editor-image", payload);
 }
 
 /// Open the snip editor with optional capture payload (falls back to last snip).
@@ -348,14 +369,50 @@ pub fn open_snip_editor(
     windows::show_snip_editor(&app)?;
 
     if let Some(payload) = payload {
+        // Immediate emit, then retries so a late-mounted listener still gets the image.
+        emit_editor_image(&app, &payload);
         let app2 = app.clone();
         std::thread::spawn(move || {
-            // Give the webview time to mount listeners if it was just created.
-            std::thread::sleep(std::time::Duration::from_millis(120));
-            let _ = app2.emit("editor-image", payload);
+            for delay_ms in [150u64, 400, 800] {
+                std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                emit_editor_image(&app2, &payload);
+            }
         });
     }
     Ok(())
+}
+
+/// Load a history image into the snip editor.
+#[tauri::command]
+pub fn open_snip_editor_from_history(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let item = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        db.get_item(&id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Item not found".to_string())?
+    };
+    if item.item_type != ClipItemType::Image {
+        return Err("Item is not an image".into());
+    }
+    let b64 = item
+        .content
+        .strip_prefix("data:image/png;base64,")
+        .or_else(|| item.content.strip_prefix("data:image/jpeg;base64,"))
+        .unwrap_or(item.content.as_str())
+        .to_string();
+    let bytes = decode_png_bounded(&b64)?;
+    let (width, height) = image_dimensions_from_png(&bytes).unwrap_or((0, 0));
+    let capture = CaptureResult {
+        png_base64: b64,
+        width,
+        height,
+        saved_path: None,
+    };
+    open_snip_editor(app, state, Some(capture))
 }
 
 /// `$XDG_PICTURES_DIR/Screenshots` (usually `~/Pictures/Screenshots`).
@@ -375,7 +432,8 @@ fn default_screenshot_name() -> String {
 fn write_png_to_screenshots(bytes: &[u8], filename: &str) -> Result<String, String> {
     let folder = screenshot_dir()?;
     std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-    let path = folder.join(filename);
+    let name = sanitize_screenshot_filename(filename)?;
+    let path = folder.join(name);
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
@@ -390,9 +448,7 @@ fn finalize_snip(
     state: &State<'_, AppState>,
     mut result: CaptureResult,
 ) -> Result<CaptureResult, String> {
-    let png_bytes = STANDARD
-        .decode(&result.png_base64)
-        .map_err(|e| e.to_string())?;
+    let png_bytes = decode_png_bounded(&result.png_base64)?;
     let (content, preview) = image_content_and_preview(&png_bytes)?;
     write_item_to_clipboard(ClipItemType::Image, &content)?;
     {

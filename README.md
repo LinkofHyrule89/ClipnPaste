@@ -2,7 +2,7 @@
 
 **Windows 11-style clipboard history and snipping tool** for Linux Mint and other Debian-based desktops (X11 / Cinnamon).
 
-**Current version: [0.2.9](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.9)** · [Changelog](CHANGELOG.md)
+**Current version: [0.2.10](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.10)** · [Changelog](CHANGELOG.md)
 
 ## Features
 
@@ -106,12 +106,15 @@ npm install
 npm run tauri dev
 ```
 
-Unit tests (DB flows, clear-all / re-copy gate, pin, edit, promote, text-vs-image policy — no display required):
+Unit tests (Rust + frontend; no display required):
 
 ```bash
 npm test
-# or: cargo test --manifest-path src-tauri/Cargo.toml --lib
+# cargo: path/sanitize, IPC allowlist, snip region math, DB, clipboard policy, settings
+# vitest: emoji skin groups, image data-URL helpers, settings defaults
 ```
+
+Security notes (local threat model, IPC, Screenshots path rules): [SECURITY.md](SECURITY.md).
 
 Local production install:
 
@@ -130,13 +133,13 @@ Output: `src-tauri/target/release/bundle/deb/ClipnPaste_*_amd64.deb`
 
 ## Data location
 
-All app data stays on disk locally:
+All app data stays on disk locally (see [SECURITY.md](SECURITY.md) for permissions):
 
 | Path | Purpose |
 |------|---------|
 | `~/.local/share/clipnpaste/history.db` | Clipboard history |
 | `~/.local/share/clipnpaste/settings.json` | UI settings |
-| `~/.local/share/clipnpaste/ipc.sock` | Hotkey / CLI IPC |
+| `~/.local/share/clipnpaste/ipc.sock` | Hotkey / CLI IPC (owner-only) |
 
 ## CLI
 

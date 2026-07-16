@@ -15,6 +15,26 @@ use crate::windows::{self, ClipboardTab};
 pub static CHORD_USED: AtomicBool = AtomicBool::new(false);
 static LAST_CHORD_MS: AtomicU64 = AtomicU64::new(0);
 
+/// Known IPC commands accepted from `clipnpaste-cli` / local socket.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IpcCommand {
+    Clipboard,
+    Emoji,
+    Snip,
+    Settings,
+}
+
+/// Parse a raw socket payload into an allowlisted command.
+pub fn parse_ipc_command(raw: &str) -> Option<IpcCommand> {
+    match raw.trim() {
+        "clipboard" => Some(IpcCommand::Clipboard),
+        "emoji" => Some(IpcCommand::Emoji),
+        "snip" => Some(IpcCommand::Snip),
+        "settings" => Some(IpcCommand::Settings),
+        _ => None,
+    }
+}
+
 pub fn socket_path() -> std::path::PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
@@ -26,6 +46,11 @@ pub fn start(app: AppHandle) -> Result<(), String> {
     let socket_path = socket_path();
     if let Some(parent) = socket_path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(parent, fs::Permissions::from_mode(0o700));
+        }
     }
     let _ = fs::remove_file(&socket_path);
 
@@ -40,6 +65,16 @@ pub fn start(app: AppHandle) -> Result<(), String> {
                     return;
                 }
             };
+
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Err(err) =
+                    fs::set_permissions(&socket_path, fs::Permissions::from_mode(0o600))
+                {
+                    eprintln!("ClipnPaste IPC chmod failed: {err}");
+                }
+            }
 
             for stream in listener.incoming() {
                 let Ok(mut stream) = stream else { continue };
@@ -73,29 +108,60 @@ fn now_ms() -> u64 {
 }
 
 fn dispatch(app: &AppHandle, cmd: &str) {
-    if matches!(cmd, "emoji" | "clipboard") {
+    let Some(cmd) = parse_ipc_command(cmd) else {
+        return;
+    };
+
+    if matches!(cmd, IpcCommand::Emoji | IpcCommand::Clipboard) {
         let state = app.state::<AppState>();
         focus_target::load_into_store(&state.focus_target);
     }
 
     let app_handle = app.clone();
-    let cmd = cmd.to_string();
-    let _ = app.clone().run_on_main_thread(move || match cmd.as_str() {
-        "clipboard" => {
+    let _ = app.clone().run_on_main_thread(move || match cmd {
+        IpcCommand::Clipboard => {
             let _ = windows::show_clipboard_panel(&app_handle, ClipboardTab::History);
         }
-        "emoji" => {
+        IpcCommand::Emoji => {
             let state = app_handle.state::<AppState>();
             if settings::emoji_enabled(&state.settings) {
                 let _ = windows::show_clipboard_panel(&app_handle, ClipboardTab::Emoji);
             }
         }
-        "snip" => {
+        IpcCommand::Snip => {
             let _ = windows::show_snip_toolbar(&app_handle);
         }
-        "settings" => {
+        IpcCommand::Settings => {
             let _ = windows::show_settings_window(&app_handle);
         }
-        _ => {}
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_known_commands() {
+        assert_eq!(parse_ipc_command("clipboard"), Some(IpcCommand::Clipboard));
+        assert_eq!(parse_ipc_command("emoji"), Some(IpcCommand::Emoji));
+        assert_eq!(parse_ipc_command("snip"), Some(IpcCommand::Snip));
+        assert_eq!(parse_ipc_command("settings"), Some(IpcCommand::Settings));
+    }
+
+    #[test]
+    fn parse_trims_whitespace() {
+        assert_eq!(
+            parse_ipc_command("  clipboard\n"),
+            Some(IpcCommand::Clipboard)
+        );
+    }
+
+    #[test]
+    fn parse_rejects_unknown() {
+        assert_eq!(parse_ipc_command(""), None);
+        assert_eq!(parse_ipc_command("quit"), None);
+        assert_eq!(parse_ipc_command("clipboard; rm -rf /"), None);
+        assert_eq!(parse_ipc_command("CLIPBOARD"), None);
+    }
 }

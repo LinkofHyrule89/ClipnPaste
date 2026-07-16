@@ -34,6 +34,10 @@ export const saveEditedSnip = (pngBase64: string, path?: string | null) =>
   invoke<CaptureResult>("save_edited_snip", { pngBase64, path: path ?? null });
 export const openSnipEditor = (capture?: CaptureResult | null) =>
   invoke<void>("open_snip_editor", { capture: capture ?? null });
+export const openSnipEditorFromHistory = (id: string) =>
+  invoke<void>("open_snip_editor_from_history", { id });
+export const getLastSnipCapture = () =>
+  invoke<CaptureResult | null>("get_last_snip_capture");
 export const getSettings = () => invoke<AppSettings>("get_settings");
 export const setSettings = (settings: AppSettings) =>
   invoke<void>("set_settings", { settings });

@@ -39,7 +39,12 @@ impl Database {
         }
 
         let db_path = data_dir.join("history.db");
-        let conn = Connection::open(db_path)?;
+        let conn = Connection::open(&db_path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(&db_path, fs::Permissions::from_mode(0o600));
+        }
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS items (
                 id TEXT PRIMARY KEY,
@@ -364,6 +369,32 @@ mod tests {
             .insert_item(ClipItemType::Text, &huge, "preview")
             .unwrap()
             .is_none());
+    }
+
+    #[test]
+    fn oversized_image_rejected() {
+        let (_dir, db) = temp_db();
+        let huge = "x".repeat(MAX_IMAGE_BYTES + 1);
+        assert!(db
+            .insert_item(ClipItemType::Image, &huge, "preview")
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn empty_text_insert_ok() {
+        let (_dir, db) = temp_db();
+        let item = db
+            .insert_item(ClipItemType::Text, "", "")
+            .unwrap()
+            .expect("empty text allowed");
+        assert_eq!(item.content, "");
+    }
+
+    #[test]
+    fn delete_missing_is_ok() {
+        let (_dir, db) = temp_db();
+        db.delete_item("missing-id").unwrap();
     }
 
     #[test]

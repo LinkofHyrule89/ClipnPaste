@@ -26,7 +26,9 @@ export function SnipToast() {
   }, [capture]);
 
   const openEditor = async () => {
+    if (!capture) return;
     try {
+      // Open editor first (stores last_capture + retries emit), then hide toast.
       await openSnipEditor(capture);
     } catch (err) {
       console.error("Failed to open snip editor:", err);

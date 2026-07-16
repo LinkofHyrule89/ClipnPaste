@@ -2,6 +2,26 @@
 
 All notable changes to ClipnPaste are documented in this file.
 
+## [0.2.10] - 2026-07-15
+
+### Added
+
+- **Edit history images** in the Snip editor (✎ on image items → same crop/pen/blur tools as a snip)
+- `get_last_snip_capture` so the editor can pull the latest capture if the open event is missed
+- **Security hardening**: screenshot save paths restricted to `$XDG_PICTURES_DIR/Screenshots`; PNG decode size capped; IPC socket/dir and history DB file modes tightened (`0600`/`0700`)
+- `SECURITY.md` threat model and local data notes
+- CI unit-test workflow (`.github/workflows/test.yml`) for Rust + Vitest on push/PR
+- Expanded automated tests (path/sanitize, IPC allowlist, snip region math, DB edges, image data-URL helpers)
+
+### Fixed
+
+- Toast **Click to edit** reliability: retry `editor-image` emits, window-targeted events, and pull-on-mount/focus so the editor is not left empty
+
+### Security
+
+- Reject arbitrary filesystem writes from `save_edited_snip` / `save_png` (path traversal / absolute path escape)
+- Bound large base64 image payloads before decode to reduce memory pressure
+
 ## [0.2.9] - 2026-07-12
 
 ### Fixed
@@ -173,6 +193,10 @@ First public release for Linux Mint / Cinnamon (X11).
 - Normal `s` key typing no longer blocked while the app is running
 - Cinnamon Settings shows ClipnPaste under Custom Shortcuts
 
+[0.2.10]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.10
+[0.2.9]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.9
+[0.2.8]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.8
+[0.2.7]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.7
 [0.2.6]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.6
 [0.2.5]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.5
 [0.2.4]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.4

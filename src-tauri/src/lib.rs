@@ -4,6 +4,7 @@ mod db;
 pub mod focus_target;
 mod hotkeys;
 mod ipc;
+mod paths;
 mod settings;
 mod snip;
 mod windows;
@@ -69,6 +70,8 @@ pub fn run() {
             commands::save_png,
             commands::save_edited_snip,
             commands::open_snip_editor,
+            commands::open_snip_editor_from_history,
+            commands::get_last_snip_capture,
             commands::get_settings,
             commands::set_settings,
             commands::open_keyboard_shortcuts,
