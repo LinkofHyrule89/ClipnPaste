@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { getSettings, openKeyboardShortcuts, setSettings } from "../api";
+import {
+  getAppVersion,
+  getSettings,
+  openKeyboardShortcuts,
+  openProjectPage,
+  setSettings,
+} from "../api";
 import type { AppSettings, EmojiStyle } from "../types/settings";
 import { DEFAULT_SETTINGS } from "../types/settings";
 
@@ -10,16 +16,24 @@ const EMOJI_STYLES: { id: EmojiStyle; label: string; hint: string }[] = [
   { id: "system", label: "System", hint: "Your OS emoji font" },
 ];
 
+const GITHUB_URL = "https://github.com/LinkofHyrule89/ClipnPaste";
+
 export function SettingsPanel() {
   const [settings, setLocalSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [version, setVersion] = useState<string | null>(null);
   const [shortcutsError, setShortcutsError] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
       try {
-        const current = await getSettings();
+        const [current, appVersion] = await Promise.all([
+          getSettings(),
+          getAppVersion().catch(() => null),
+        ]);
         setLocalSettings(current);
+        if (appVersion) setVersion(appVersion);
       } finally {
         setLoading(false);
       }
@@ -57,6 +71,17 @@ export function SettingsPanel() {
     }
   };
 
+  const handleOpenGitHub = async () => {
+    setLinkError(null);
+    try {
+      await openProjectPage();
+    } catch (error) {
+      setLinkError(
+        error instanceof Error ? error.message : "Failed to open GitHub page",
+      );
+    }
+  };
+
   useEffect(() => {
     const onKey = async (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -77,7 +102,9 @@ export function SettingsPanel() {
             title="Drag to move"
           >
             <h1 className="text-sm font-semibold">Settings</h1>
-            <p className="text-xs text-white/50">ClipnPaste</p>
+            <p className="text-xs text-white/50">
+              ClipnPaste{version ? ` · v${version}` : ""}
+            </p>
           </div>
           <button
             onClick={() => void close()}
@@ -179,6 +206,34 @@ export function SettingsPanel() {
                 </p>
                 {shortcutsError && (
                   <p className="mt-2 text-xs text-red-300">{shortcutsError}</p>
+                )}
+              </section>
+
+              <section>
+                <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-white/50">
+                  About
+                </h2>
+                <div className="rounded-lg bg-white/5 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-white/90">Version</span>
+                    <span className="font-mono text-sm text-white/70">
+                      {version ? `v${version}` : "—"}
+                    </span>
+                  </div>
+                  <div className="mt-3 border-t border-white/10 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenGitHub()}
+                      className="w-full text-left text-sm text-sky-200 transition hover:text-sky-100"
+                      title={GITHUB_URL}
+                    >
+                      GitHub project page →
+                    </button>
+                    <p className="mt-1 break-all text-xs text-white/40">{GITHUB_URL}</p>
+                  </div>
+                </div>
+                {linkError && (
+                  <p className="mt-2 text-xs text-red-300">{linkError}</p>
                 )}
               </section>
             </div>

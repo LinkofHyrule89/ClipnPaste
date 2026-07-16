@@ -75,6 +75,8 @@ pub fn run() {
             commands::get_settings,
             commands::set_settings,
             commands::open_keyboard_shortcuts,
+            commands::get_app_version,
+            commands::open_project_page,
             commands::show_settings,
         ])
         .run(tauri::generate_context!())

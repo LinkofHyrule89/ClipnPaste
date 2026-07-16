@@ -43,6 +43,18 @@ pub fn open_keyboard_shortcuts() -> Result<(), String> {
     settings::open_keyboard_shortcuts()
 }
 
+/// App version from the built package (`Cargo.toml` / deb).
+#[tauri::command]
+pub fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// Open the project page in the default browser (fixed allowlisted URL).
+#[tauri::command]
+pub fn open_project_page() -> Result<(), String> {
+    settings::open_project_page()
+}
+
 #[tauri::command]
 pub fn show_settings(app: AppHandle) -> Result<(), String> {
     windows::show_settings_window(&app)
