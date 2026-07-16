@@ -121,6 +121,33 @@ pub fn open_keyboard_shortcuts() -> Result<(), String> {
     }
 }
 
+/// Project homepage (GitHub). Opened only via this fixed URL from Settings.
+pub const PROJECT_PAGE_URL: &str = "https://github.com/LinkofHyrule89/ClipnPaste";
+
+pub fn open_project_page() -> Result<(), String> {
+    open_url(PROJECT_PAGE_URL)
+}
+
+fn open_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        if command_exists("xdg-open") {
+            Command::new("xdg-open")
+                .arg(url)
+                .spawn()
+                .map_err(|e| format!("failed to open browser: {e}"))?;
+            return Ok(());
+        }
+        return Err("xdg-open not found; cannot open the project page.".into());
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = url;
+        Err("Opening the project page is only supported on Linux.".into())
+    }
+}
+
 #[cfg(target_os = "linux")]
 fn is_cinnamon() -> bool {
     std::env::var("XDG_CURRENT_DESKTOP")

@@ -2,7 +2,7 @@
 
 **Windows 11-style clipboard history and snipping tool** for Linux Mint and other Debian-based desktops (X11 / Cinnamon).
 
-**Current version: [0.2.10](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.10)** · [Changelog](CHANGELOG.md)
+**Current version: [0.2.11](https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.11)** · [Changelog](CHANGELOG.md)
 
 ## Features
 

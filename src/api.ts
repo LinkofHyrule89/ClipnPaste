@@ -42,4 +42,6 @@ export const getSettings = () => invoke<AppSettings>("get_settings");
 export const setSettings = (settings: AppSettings) =>
   invoke<void>("set_settings", { settings });
 export const openKeyboardShortcuts = () => invoke<void>("open_keyboard_shortcuts");
+export const getAppVersion = () => invoke<string>("get_app_version");
+export const openProjectPage = () => invoke<void>("open_project_page");
 export const showSettings = () => invoke<void>("show_settings");

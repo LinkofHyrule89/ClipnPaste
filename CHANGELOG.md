@@ -2,6 +2,12 @@
 
 All notable changes to ClipnPaste are documented in this file.
 
+## [0.2.11] - 2026-07-15
+
+### Added
+
+- **About** section in Settings: shows the installed app version and a link to the [GitHub project page](https://github.com/LinkofHyrule89/ClipnPaste)
+
 ## [0.2.10] - 2026-07-15
 
 ### Added
@@ -193,6 +199,7 @@ First public release for Linux Mint / Cinnamon (X11).
 - Normal `s` key typing no longer blocked while the app is running
 - Cinnamon Settings shows ClipnPaste under Custom Shortcuts
 
+[0.2.11]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.11
 [0.2.10]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.10
 [0.2.9]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.9
 [0.2.8]: https://github.com/LinkofHyrule89/ClipnPaste/releases/tag/v0.2.8
