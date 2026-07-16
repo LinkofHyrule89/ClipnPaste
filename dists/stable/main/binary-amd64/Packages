@@ -1,0 +1,150 @@
+Package: clipn-paste
+Version: 0.1.0
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 17789
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.1.0_amd64.deb
+Size: 6417638
+MD5sum: e2437f6bf128fb8ae439b1be9cb8471b
+SHA1: 7f25bca5e40fde71a7448b6f0a91bb76b61e5ca5
+SHA256: f1ef7305d73e4968bc0d35df22bbfae32e1661ff0d5c25695e80b27ffdfd7c6d
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+
+Package: clipn-paste
+Version: 0.2.1
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 22482
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.2.1_amd64.deb
+Size: 8949918
+MD5sum: 2ccac7b22317a326d58bf1737fbbb2de
+SHA1: b494f07b74fe1729098c1667eab47f1c75f9696f
+SHA256: 8b63da523fb506864c56cc8e209bc82940899d85af3d4682a80ae9e951a6ad6d
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+
+Package: clipn-paste
+Version: 0.2.10
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 32977
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.2.10_amd64.deb
+Size: 19044068
+MD5sum: fc00952599bf1cc0ad57be235c48c4f4
+SHA1: a219e77910a76d79ce2ff9814da2f139be0459f3
+SHA256: f86d23fc65f9eeb25179ca9cdae6e69dc3b89a376654b7284cd3ec001e4d977c
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+
+Package: clipn-paste
+Version: 0.2.11
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 32966
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.2.11_amd64.deb
+Size: 19045180
+MD5sum: 149b64080727e2d2421244ac74bf6018
+SHA1: 7334c4dba44fee98b3db5d22c249ba38e9fe0401
+SHA256: 54603baa459fef46609890d10e956d08bc39a34a8733c6cef8e94faab0dbfe72
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+
+Package: clipn-paste
+Version: 0.2.4
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 22670
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.2.4_amd64.deb
+Size: 9000216
+MD5sum: a41baf05aae80ffa15cfdbd6abc01f9c
+SHA1: e3421c23fcdf402cdb3160a1d433ca14e2525884
+SHA256: 189c85908cc691d4ea2435c67b50f6d3c6f03bf27bccdc332347e20ac55a9dcd
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+
+Package: clipn-paste
+Version: 0.2.5
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 22683
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.2.5_amd64.deb
+Size: 9005296
+MD5sum: 717cf1e6940b8982c7b62d079331b38e
+SHA1: 53c925bc2d231500cf3e465f2faef39a8653a99c
+SHA256: f2e4c4e27f66e4b8996883e00eebe6c83cd757e2828ffdc143b032853352e1cb
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+
+Package: clipn-paste
+Version: 0.2.6
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 22819
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.2.6_amd64.deb
+Size: 9075790
+MD5sum: b0a633838bdf19334f4e1b0d6dfcfa4f
+SHA1: 9e6aab73bbd12daaa1d84df29cd3dc80e0fc46ad
+SHA256: 0062a29f5bf2885d2228b881e6dbb7da160e98c059b590cdf91126ae49ecaf08
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+
+Package: clipn-paste
+Version: 0.2.7
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 22880
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.2.7_amd64.deb
+Size: 9111146
+MD5sum: fd0c91cb7b2a29d50987ff68f2316afe
+SHA1: 1044892075167e88568ef1559cc8a0eb5fe63d51
+SHA256: 6fa5578445dec597a3565302a624d777585dd89450ea3c1c99c94d2a7538d216
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+
+Package: clipn-paste
+Version: 0.2.8
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 32969
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.2.8_amd64.deb
+Size: 19052950
+MD5sum: d9f461ecf19bad5110fc4bb86a85fe48
+SHA1: 4e7e0398df1d21fc11da6974be4eb2076c473f02
+SHA256: c29b012dd74b4da1475772b142ac2e16a9b872a98764238905b31411139b6b53
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+
+Package: clipn-paste
+Version: 0.2.9
+Architecture: amd64
+Maintainer: Matt
+Installed-Size: 32969
+Depends: libwebkit2gtk-4.1-0, libayatana-appindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
+Filename: pool/main/ClipnPaste_0.2.9_amd64.deb
+Size: 19048776
+MD5sum: 6ce72234438d6fd9ce370f71a389c9ee
+SHA1: 177e15a430487ff73f5439c077db095efc6c7422
+SHA256: f443310305589409faa344e4bed01bfa2ba9beb277d4973f7a1b970625bf4667
+Priority: optional
+Description: Windows 11-style clipboard history and snipping tool for Linux
+ (none)
+

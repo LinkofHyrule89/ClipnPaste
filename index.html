@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ClipnPaste — clipboard history &amp; snipping for Linux</title>
+  <meta name="description" content="Windows 11-style clipboard history and snipping tool for Linux Mint and Debian." />
+  <meta property="og:title" content="ClipnPaste" />
+  <meta property="og:description" content="Windows 11-style clipboard history and snipping for Linux Mint" />
+  <meta property="og:image" content="https://linkofhyrule89.github.io/ClipnPaste/social-preview.png" />
+  <meta property="og:image:width" content="1280" />
+  <meta property="og:image:height" content="640" />
+  <meta property="og:url" content="https://linkofhyrule89.github.io/ClipnPaste/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="ClipnPaste" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="ClipnPaste" />
+  <meta name="twitter:description" content="Windows 11-style clipboard history and snipping for Linux Mint" />
+  <meta name="twitter:image" content="https://linkofhyrule89.github.io/ClipnPaste/social-preview.png" />
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { max-width: 42rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; background: #111; color: #eee; }
+    code, pre { background: #1e1e1e; border-radius: 6px; }
+    code { padding: 0.15em 0.4em; }
+    pre { padding: 1rem; overflow-x: auto; }
+    a { color: #38bdf8; }
+    h1 { font-size: 1.75rem; margin-bottom: 0.35rem; }
+    .tagline { color: #a3a3a3; margin-top: 0; }
+    .shots { display: flex; gap: 0.5rem; flex-wrap: nowrap; margin: 1.25rem 0; overflow-x: auto; }
+    .shots img { height: 120px; width: auto; max-width: 22%; object-fit: contain; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+    h2 { font-size: 1.1rem; margin-top: 1.75rem; }
+  </style>
+</head>
+<body>
+  <h1>ClipnPaste</h1>
+  <p class="tagline">Windows 11-style clipboard history and snipping for Linux Mint / Debian (amd64).</p>
+  <h2>Features</h2>
+  <ul>
+    <li><strong>Live clipboard history</strong> — text and images as you copy</li>
+    <li><strong>Windows 11-style paste</strong> — pick a clip for Super+V / Ctrl+V</li>
+    <li><strong>Edit, pin, delete</strong> history items; image thumbnails</li>
+    <li><strong>Emoji picker</strong> (offline) and <strong>snipping tool</strong> with annotation editor</li>
+    <li>Local-only data (no network required at runtime)</li>
+  </ul>
+  <div class="shots">
+    <img src="screenshots/01-history.png" alt="Clipboard history" />
+    <img src="screenshots/03-emoji.png" alt="Emoji picker" />
+    <img src="screenshots/04-settings.png" alt="Settings" />
+    <img src="screenshots/05-snip-toolbar.png" alt="Snip toolbar" />
+  </div>
+  <p><a href="https://github.com/LinkofHyrule89/ClipnPaste">Source on GitHub</a> · package name <code>clipn-paste</code></p>
+  <h2>Quick install</h2>
+  <pre>curl -fsSL https://linkofhyrule89.github.io/ClipnPaste/install.sh | sudo bash</pre>
+  <h2>Manual</h2>
+  <pre>echo 'deb [arch=amd64 trusted=yes] https://linkofhyrule89.github.io/ClipnPaste stable main' \
+  | sudo tee /etc/apt/sources.list.d/clipnpaste.list
+sudo apt update
+sudo apt install clipn-paste</pre>
+  <h2>Uninstall</h2>
+  <pre>pkill -x clipnpaste 2>/dev/null || true
+sudo apt remove clipn-paste
+sudo apt purge clipn-paste
+sudo rm -f /etc/apt/sources.list.d/clipnpaste.list
+sudo apt update</pre>
+</body>
+</html>

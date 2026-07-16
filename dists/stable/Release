@@ -1,0 +1,14 @@
+Origin: ClipnPaste
+Label: ClipnPaste
+Suite: stable
+Codename: stable
+Architectures: amd64
+Components: main
+Description: ClipnPaste unofficial apt repository (GitHub Pages)
+Date: Thu, 16 Jul 2026 04:32:15 +0000
+MD5Sum:
+ b61ee2ae04fd5cdcc6107f83c107ac55     5398 main/binary-amd64/Packages
+ 70ea313c8ff611a7ea5efafbe9e7d4cc     1375 main/binary-amd64/Packages.gz
+SHA256:
+ 59a5b3c921f6042abf79265e8d2d5a8da4e242386cdb454971781cff09d79bed     5398 main/binary-amd64/Packages
+ 999efb1a0a68c1cf25af31eb34a3b71fa1e49d9e727a79723da4ae1b24238021     1375 main/binary-amd64/Packages.gz
