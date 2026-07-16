@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { copyPngToClipboard, saveEditedSnip } from "../api";
+import { copyPngToClipboard, getLastSnipCapture, saveEditedSnip } from "../api";
+import { base64FromDataUrl } from "../lib/imageDataUrl";
 import type { CaptureResult } from "../types";
 
 type Tool = "pen" | "highlighter" | "blur" | "crop";
@@ -140,41 +141,76 @@ export function SnipEditor() {
   }, []);
 
   const loadCapture = useCallback((next: CaptureResult) => {
+    if (!next?.pngBase64) return;
     setCapture(next);
     undoStack.current = [];
     setCanUndo(false);
     setStatus(null);
 
-    const canvas = canvasRef.current;
-    const overlay = overlayRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const applyToCanvas = () => {
+      const canvas = canvasRef.current;
+      const overlay = overlayRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-    const image = new Image();
-    image.onload = () => {
-      canvas.width = image.width;
-      canvas.height = image.height;
-      if (overlay) {
-        overlay.width = image.width;
-        overlay.height = image.height;
-        overlay.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
-      }
-      ctx.drawImage(image, 0, 0);
+      const image = new Image();
+      image.onload = () => {
+        canvas.width = image.width;
+        canvas.height = image.height;
+        if (overlay) {
+          overlay.width = image.width;
+          overlay.height = image.height;
+          overlay.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
+        }
+        ctx.drawImage(image, 0, 0);
+      };
+      image.src = `data:image/png;base64,${next.pngBase64}`;
     };
-    image.src = `data:image/png;base64,${next.pngBase64}`;
+
+    // Canvas may not be mounted on first paint of a just-shown window.
+    requestAnimationFrame(() => applyToCanvas());
   }, []);
 
+  const pullLastCapture = useCallback(async () => {
+    try {
+      const last = await getLastSnipCapture();
+      if (last?.pngBase64) {
+        loadCapture(last);
+      }
+    } catch (err) {
+      console.error("get_last_snip_capture failed:", err);
+    }
+  }, [loadCapture]);
+
   useEffect(() => {
+    // Pull stored snip immediately (covers missed push events).
+    void pullLastCapture();
+
     const unlisten = listen<CaptureResult>("editor-image", (event) => {
       loadCapture(event.payload);
       void getCurrentWindow().show();
       void getCurrentWindow().setFocus();
     });
+
+    let unlistenFocus: (() => void) | undefined;
+    void (async () => {
+      const win = getCurrentWindow();
+      unlistenFocus = await win.onFocusChanged(({ payload: focused }) => {
+        if (focused) {
+          // If we opened empty, re-pull after the webview is focused.
+          void getLastSnipCapture().then((last) => {
+            if (last?.pngBase64) loadCapture(last);
+          });
+        }
+      });
+    })();
+
     return () => {
       void unlisten.then((fn) => fn());
+      unlistenFocus?.();
     };
-  }, [loadCapture]);
+  }, [loadCapture, pullLastCapture]);
 
   const getPoint = (event: React.PointerEvent<HTMLCanvasElement>): Point | null => {
     const canvas = canvasRef.current;
@@ -347,7 +383,7 @@ export function SnipEditor() {
     const canvas = canvasRef.current;
     if (!canvas) return "";
     const dataUrl = canvas.toDataURL("image/png");
-    return dataUrl.split(",")[1] ?? "";
+    return base64FromDataUrl(dataUrl);
   };
 
   const handleCopy = async () => {

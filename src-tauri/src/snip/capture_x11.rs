@@ -110,7 +110,33 @@ pub fn capture_region(x: i32, y: i32, width: u32, height: u32) -> Result<Capture
         return Err(CaptureError::Message("Empty capture".into()));
     }
 
-    // Map physical monitor coords → image pixel coords (handles any residual mismatch).
+    let (rx, ry, rw, rh) = map_and_clamp_region(x, y, width, height, mx, my, mw, mh, iw, ih)
+        .map_err(CaptureError::Message)?;
+
+    let cropped =
+        image::imageops::crop_imm(&image, rx, ry, rw, rh).to_image();
+    encode_image(&cropped)
+}
+
+/// Map a physical-screen region onto monitor image pixels and clamp to bounds.
+///
+/// Returns `(x, y, width, height)` in image pixel space.
+pub fn map_and_clamp_region(
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    mx: i32,
+    my: i32,
+    mw: i32,
+    mh: i32,
+    iw: u32,
+    ih: u32,
+) -> Result<(u32, u32, u32, u32), String> {
+    if width == 0 || height == 0 || mw <= 0 || mh <= 0 || iw == 0 || ih == 0 {
+        return Err("Invalid region size".into());
+    }
+
     let sx = iw as f32 / mw as f32;
     let sy = ih as f32 / mh as f32;
 
@@ -121,7 +147,6 @@ pub fn capture_region(x: i32, y: i32, width: u32, height: u32) -> Result<Capture
     let mut rw = (width as f32 * sx).round() as i32;
     let mut rh = (height as f32 * sy).round() as i32;
 
-    // Clamp crop rect to image bounds.
     if rx < 0 {
         rw += rx;
         rx = 0;
@@ -131,17 +156,15 @@ pub fn capture_region(x: i32, y: i32, width: u32, height: u32) -> Result<Capture
         ry = 0;
     }
     if rx >= iw as i32 || ry >= ih as i32 || rw <= 0 || rh <= 0 {
-        return Err(CaptureError::Message("Region outside monitor".into()));
+        return Err("Region outside monitor".into());
     }
     rw = rw.min(iw as i32 - rx);
     rh = rh.min(ih as i32 - ry);
     if rw <= 0 || rh <= 0 {
-        return Err(CaptureError::Message("Region outside monitor".into()));
+        return Err("Region outside monitor".into());
     }
 
-    let cropped =
-        image::imageops::crop_imm(&image, rx as u32, ry as u32, rw as u32, rh as u32).to_image();
-    encode_image(&cropped)
+    Ok((rx as u32, ry as u32, rw as u32, rh as u32))
 }
 
 fn find_monitor_for_physical_point(monitors: &[Monitor], x: i32, y: i32) -> Option<&Monitor> {
@@ -181,4 +204,57 @@ fn encode_image(image: &image::RgbaImage) -> Result<CaptureResult, CaptureError>
         height,
         saved_path: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn map_identity_scale_full_monitor() {
+        // Region covers whole 100x50 physical monitor → full 100x50 image.
+        let (rx, ry, rw, rh) =
+            map_and_clamp_region(0, 0, 100, 50, 0, 0, 100, 50, 100, 50).unwrap();
+        assert_eq!((rx, ry, rw, rh), (0, 0, 100, 50));
+    }
+
+    #[test]
+    fn map_2x_scale_physical_to_image() {
+        // Logical 100x100 at scale 2 → image 200x200; region 10,10 20x20 physical
+        // maps 1:1 if mw/mh already physical (mw=200).
+        let (rx, ry, rw, rh) =
+            map_and_clamp_region(10, 10, 20, 20, 0, 0, 200, 200, 200, 200).unwrap();
+        assert_eq!((rx, ry, rw, rh), (10, 10, 20, 20));
+    }
+
+    #[test]
+    fn map_clamps_partial_overflow() {
+        let (rx, ry, rw, rh) =
+            map_and_clamp_region(90, 90, 50, 50, 0, 0, 100, 100, 100, 100).unwrap();
+        assert_eq!(rx, 90);
+        assert_eq!(ry, 90);
+        assert_eq!(rw, 10);
+        assert_eq!(rh, 10);
+    }
+
+    #[test]
+    fn map_rejects_fully_outside() {
+        assert!(map_and_clamp_region(200, 200, 10, 10, 0, 0, 100, 100, 100, 100).is_err());
+    }
+
+    #[test]
+    fn map_rejects_zero_size() {
+        assert!(map_and_clamp_region(0, 0, 0, 10, 0, 0, 100, 100, 100, 100).is_err());
+        assert!(map_and_clamp_region(0, 0, 10, 0, 0, 0, 100, 100, 100, 100).is_err());
+    }
+
+    #[test]
+    fn map_negative_origin_clamped() {
+        let (rx, ry, rw, rh) =
+            map_and_clamp_region(-10, -5, 30, 20, 0, 0, 100, 100, 100, 100).unwrap();
+        assert_eq!(rx, 0);
+        assert_eq!(ry, 0);
+        assert_eq!(rw, 20);
+        assert_eq!(rh, 15);
+    }
 }
